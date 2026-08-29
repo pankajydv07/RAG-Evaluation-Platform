@@ -11,27 +11,27 @@ from ragapp.providers.base import LLMProvider, LLMResponse
 _decoder = json.JSONDecoder()
 
 
-def extract_json_from_text(text: str) -> dict[str, Any]:
-    """Extract the first valid JSON object from an LLM response string.
+def extract_json_from_text(text: str) -> dict[str, Any] | list:
+    """Extract the first valid JSON value (object or array) from an LLM response string.
 
-    Uses raw_decode so it stops at the end of the first complete JSON object
+    Uses raw_decode so it stops at the end of the first complete JSON value
     and ignores any trailing text, duplicate objects, or markdown fences.
     """
-    # Strip markdown code fences first
-    fenced = re.search(r"```(?:json)?\s*(\{.*?)\s*```", text, re.DOTALL)
+    # Strip markdown code fences first (handles both ``` and ```json fences with { or [ start)
+    fenced = re.search(r"```(?:json)?\s*([\[\{].*?)[\]\}]\s*```", text, re.DOTALL)
     if fenced:
-        text = fenced.group(1)
+        text = fenced.group(0).split('```', 1)[-1].lstrip('json').strip().rstrip('```').strip()
 
     text = text.strip()
-    # Scan for the first '{' and try raw_decode from there
+    # Scan for the first '{' or '[' and try raw_decode from there
     for i, ch in enumerate(text):
-        if ch == "{":
+        if ch in ('{', '['):
             try:
                 obj, _ = _decoder.raw_decode(text, i)
                 return obj  # type: ignore[return-value]
             except json.JSONDecodeError:
                 continue
-    raise json.JSONDecodeError("No valid JSON object found", text, 0)
+    raise json.JSONDecodeError("No valid JSON object or array found", text, 0)
 
 
 async def _with_retry(coro_fn, retries: int = 3, base_delay: float = 2.0):

@@ -10,6 +10,8 @@ class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1)
     top_k: int = Field(default=5, ge=1, le=20)
     enable_reranker: bool = True
+    enable_multi_query: bool = False
+    enable_lost_in_middle_reorder: bool = True
     provider: str | None = None  # "groq" or "nebius" (defaults to app config)
     model: str | None = None
 

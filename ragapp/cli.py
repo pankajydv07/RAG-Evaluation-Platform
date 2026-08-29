@@ -74,6 +74,8 @@ def query(
     collection: str = typer.Option(..., "--collection", "-c", help="Collection name"),
     question: str = typer.Option(..., "--query", "-q", help="Natural language question"),
     top_k: int = typer.Option(5, "--top-k", "-k", help="Number of passages to retrieve"),
+    multi_query: bool = typer.Option(False, "--multi-query", help="Enable Multi-Query RAG-Fusion (generate query variations)"),
+    no_reorder: bool = typer.Option(False, "--no-reorder", help="Disable Lost-in-the-Middle context reordering"),
 ):
     """Query the RAG system and generate a grounded answer."""
     async def _run():
@@ -85,10 +87,14 @@ def query(
             service = RAGService(session, embedding_provider, llm_provider)
 
             console.print(f"[cyan]Searching '{collection}' for: '{question}'...[/cyan]")
+            if multi_query:
+                console.print("[yellow]Multi-Query RAG-Fusion enabled — generating query variations...[/yellow]")
             response = await service.answer_query(
                 collection_name=collection,
                 query_text=question,
                 top_k=top_k,
+                enable_multi_query=multi_query,
+                enable_lost_in_middle_reorder=not no_reorder,
             )
             await session.commit()
 

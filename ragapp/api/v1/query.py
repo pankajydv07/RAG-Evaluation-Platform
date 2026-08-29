@@ -57,6 +57,8 @@ async def query_rag(
             query_text=payload.query,
             top_k=payload.top_k,
             enable_reranker=payload.enable_reranker,
+            enable_multi_query=payload.enable_multi_query,
+            enable_lost_in_middle_reorder=payload.enable_lost_in_middle_reorder,
             model_override=payload.model,
         )
 
@@ -100,6 +102,8 @@ async def query_rag_stream(
             query_text=payload.query,
             top_k=payload.top_k,
             enable_reranker=payload.enable_reranker,
+            enable_multi_query=payload.enable_multi_query,
+            enable_lost_in_middle_reorder=payload.enable_lost_in_middle_reorder,
             model_override=payload.model,
         ):
             if chunk["type"] == "done":

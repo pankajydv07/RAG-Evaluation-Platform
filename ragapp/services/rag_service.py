@@ -1,4 +1,4 @@
-"""RAG Service orchestrating dense retrieval, reranking, generation, and tracing."""
+"""RAG Service orchestrating dense retrieval, multi-query fusion, reranking, generation, and tracing."""
 
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,8 +8,10 @@ from ragapp.providers.base import LLMProvider, EmbeddingProvider
 from ragapp.repositories.collection_repo import CollectionRepository
 from ragapp.repositories.trace_repo import TraceRepository
 from ragapp.repositories.vector_repo import VectorRepository
+from ragapp.retrieval.fusion import reciprocal_rank_fusion, reorder_lost_in_middle
 from ragapp.retrieval.reranker import PassageReranker
 from ragapp.schemas.query import CitedChunk, QueryResponse
+from ragapp.storage.vector_store import SearchResult
 
 
 class RAGService:
@@ -29,12 +31,92 @@ class RAGService:
         self.trace_repo = TraceRepository(session)
         self.generator = RAGGenerator(llm_provider)
 
+    async def generate_query_variations(self, query: str) -> list[str]:
+        """Generate 3 alternative rephrasings of the input query for RAG-Fusion."""
+        prompt = (
+            f'Generate 3 distinct alternative search queries for the same underlying question.\n'
+            f'Return ONLY a JSON array of 3 strings, nothing else.\n'
+            f'Example: ["alternative query 1", "alternative query 2", "alternative query 3"]\n\n'
+            f'Original Query: {query}'
+        )
+        try:
+            json_res = await self.llm_provider.generate_json(
+                prompt=prompt,
+                system_prompt="You are a query expansion assistant. Always respond with a JSON array.",
+                temperature=0.7,
+            )
+            # Handle list directly
+            if isinstance(json_res, list):
+                variations = [str(q) for q in json_res if q and str(q) != query][:3]
+                if variations:
+                    return variations
+            # Handle dict like {"queries": [...]} or {"variations": [...]}
+            elif isinstance(json_res, dict):
+                for key in ("queries", "variations", "alternatives", "rephrasing"):
+                    val = json_res.get(key)
+                    if isinstance(val, list):
+                        variations = [str(q) for q in val if q and str(q) != query][:3]
+                        if variations:
+                            return variations
+        except Exception:
+            pass
+        # Graceful fallback: return just the original query if nothing parsed
+        return [query]
+
+    async def _retrieve_passages(
+        self,
+        collection_id: uuid.UUID,
+        query_text: str,
+        retrieval_limit: int,
+        enable_multi_query: bool = False,
+    ) -> list[SearchResult]:
+        """Retrieve passages using single dense query or Multi-Query RAG-Fusion."""
+        if not enable_multi_query:
+            query_emb = await self.embedding_provider.embed_query(query_text)
+            return await self.vec_repo.search_similar(
+                collection_id=collection_id,
+                query_embedding=query_emb,
+                limit=retrieval_limit,
+            )
+
+        # Multi-Query Expansion
+        sub_queries = await self.generate_query_variations(query_text)
+        all_queries = [query_text] + [q for q in sub_queries if q != query_text]
+
+        ranking_streams: list[list[tuple[uuid.UUID, float]]] = []
+        passage_map: dict[uuid.UUID, SearchResult] = {}
+
+        for q in all_queries:
+            q_emb = await self.embedding_provider.embed_query(q)
+            results = await self.vec_repo.search_similar(
+                collection_id=collection_id,
+                query_embedding=q_emb,
+                limit=retrieval_limit,
+            )
+            stream: list[tuple[uuid.UUID, float]] = []
+            for r in results:
+                stream.append((r.passage_id, r.similarity_score))
+                passage_map[r.passage_id] = r
+            ranking_streams.append(stream)
+
+        fused = reciprocal_rank_fusion(ranking_streams)
+        fused_passages: list[SearchResult] = []
+        for passage_id, rrf_score in fused[:retrieval_limit]:
+            item = passage_map[passage_id]
+            # Attach fused RRF score
+            item.similarity_score = float(rrf_score)
+            fused_passages.append(item)
+
+        return fused_passages
+
     async def answer_query(
         self,
         collection_name: str,
         query_text: str,
         top_k: int = 5,
         enable_reranker: bool = True,
+        enable_multi_query: bool = False,
+        enable_lost_in_middle_reorder: bool = True,
         model_override: str | None = None,
     ) -> QueryResponse:
         # 1. Resolve Collection
@@ -42,13 +124,13 @@ class RAGService:
         if not collection:
             raise ResourceNotFoundError("Collection", collection_name)
 
-        # 2. Dense Vector Retrieval
-        query_emb = await self.embedding_provider.embed_query(query_text)
+        # 2. Dense Vector Retrieval / Multi-Query Fusion
         retrieval_limit = top_k * 3 if enable_reranker else top_k
-        raw_results = await self.vec_repo.search_similar(
+        raw_results = await self._retrieve_passages(
             collection_id=collection.id,
-            query_embedding=query_emb,
-            limit=retrieval_limit,
+            query_text=query_text,
+            retrieval_limit=retrieval_limit,
+            enable_multi_query=enable_multi_query,
         )
 
         # 3. Optional Precision Reranking
@@ -66,14 +148,18 @@ class RAGService:
         else:
             final_passages = raw_results[:top_k]
 
-        # 4. Generate Grounded Answer
+        # 4. Lost-in-the-Middle Context Reordering
+        if enable_lost_in_middle_reorder and final_passages:
+            final_passages = reorder_lost_in_middle(final_passages)
+
+        # 5. Generate Grounded Answer
         gen_res = await self.generator.generate_answer(
             query=query_text,
             retrieved_passages=final_passages,
             model=model_override,
         )
 
-        # 5. Log Query Trace
+        # 6. Log Query Trace
         passage_ids = [p.passage_id for p in final_passages]
         trace = await self.trace_repo.create_trace(
             collection_id=collection.id,
@@ -86,7 +172,7 @@ class RAGService:
             latency_ms=gen_res.latency_ms,
         )
 
-        # 6. Format Response
+        # 7. Format Response
         citations = [
             CitedChunk(
                 passage_id=p.passage_id,
@@ -118,6 +204,8 @@ class RAGService:
         query_text: str,
         top_k: int = 5,
         enable_reranker: bool = True,
+        enable_multi_query: bool = False,
+        enable_lost_in_middle_reorder: bool = True,
         model_override: str | None = None,
     ):
         """Yield retrieval citations first, then stream LLM answer tokens, and yield final trace metadata."""
@@ -128,12 +216,12 @@ class RAGService:
         if not collection:
             raise ResourceNotFoundError("Collection", collection_name)
 
-        query_emb = await self.embedding_provider.embed_query(query_text)
         retrieval_limit = top_k * 3 if enable_reranker else top_k
-        raw_results = await self.vec_repo.search_similar(
+        raw_results = await self._retrieve_passages(
             collection_id=collection.id,
-            query_embedding=query_emb,
-            limit=retrieval_limit,
+            query_text=query_text,
+            retrieval_limit=retrieval_limit,
+            enable_multi_query=enable_multi_query,
         )
 
         rerank_scores: dict[uuid.UUID, float] = {}
@@ -147,6 +235,9 @@ class RAGService:
             rerank_scores = {r.search_result.passage_id: r.rerank_score for r in reranked}
         else:
             final_passages = raw_results[:top_k]
+
+        if enable_lost_in_middle_reorder and final_passages:
+            final_passages = reorder_lost_in_middle(final_passages)
 
         citations = [
             CitedChunk(

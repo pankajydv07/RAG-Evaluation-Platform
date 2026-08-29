@@ -47,3 +47,20 @@ def reciprocal_rank_fusion(
     # Sort descending by combined RRF score
     sorted_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)
     return sorted_items
+
+
+def reorder_lost_in_middle(items: list[T]) -> list[T]:
+    """Reorder a list of items (sorted best-to-worst) to mitigate Lost-in-the-Middle attention degradation.
+
+    Places the highest scoring items at the beginning and end of the returned list.
+    """
+    if not items:
+        return []
+
+    reordered: list[T] = []
+    for i, item in enumerate(items):
+        if i % 2 == 0:
+            reordered.insert(i // 2, item)
+        else:
+            reordered.append(item)
+    return reordered

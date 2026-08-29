@@ -104,6 +104,61 @@ export const api = {
     return res.json();
   },
 
+  async streamQueryRAG(collectionName, query, onCitations, onToken, onDone, topK = 5, model = null) {
+    const res = await fetch(`${API_BASE}/query/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        collection_name: collectionName,
+        query,
+        top_k: topK,
+        model,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Streaming query execution failed');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() || '';
+
+      for (const part of parts) {
+        const lines = part.split('\n');
+        let eventType = '';
+        let dataStr = '';
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            dataStr = line.slice(6).trim();
+          }
+        }
+
+        if (dataStr) {
+          try {
+            const data = JSON.parse(dataStr);
+            if (eventType === 'citations' && onCitations) onCitations(data.citations);
+            if (eventType === 'token' && onToken) onToken(data.token);
+            if (eventType === 'done' && onDone) onDone(data);
+          } catch (e) {
+            console.error('Error parsing SSE data:', e);
+          }
+        }
+      }
+    }
+  },
+
   // Evaluation & Traces
   async getEvalSummary() {
     const res = await fetch(`${API_BASE}/eval/summary`);

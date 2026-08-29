@@ -73,3 +73,50 @@ async def query_rag(
         return response
     except DomainException as exc:
         raise to_http_exception(exc)
+
+
+@router.post("/stream", status_code=status.HTTP_200_OK)
+async def query_rag_stream(
+    payload: QueryRequest,
+    background_tasks: BackgroundTasks,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Stream grounded answer tokens via Server-Sent Events (SSE) and trigger background evaluation on completion."""
+    from fastapi.responses import StreamingResponse
+    import json
+
+    embedding_provider = get_embedding_provider()
+    llm_provider = get_llm_provider(role="generator")
+    service = RAGService(
+        session=session,
+        embedding_provider=embedding_provider,
+        llm_provider=llm_provider,
+    )
+
+    async def event_generator():
+        last_done_payload = None
+        async for chunk in service.answer_query_stream(
+            collection_name=payload.collection_name,
+            query_text=payload.query,
+            top_k=payload.top_k,
+            enable_reranker=payload.enable_reranker,
+            model_override=payload.model,
+        ):
+            if chunk["type"] == "done":
+                last_done_payload = chunk
+            yield f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n"
+
+        if last_done_payload:
+            background_tasks.add_task(
+                run_background_eval,
+                last_done_payload["trace_id"],
+                payload.query,
+                last_done_payload["context_texts"],
+                last_done_payload["generated_answer"],
+            )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )

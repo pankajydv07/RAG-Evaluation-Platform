@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Bot, User, BookOpen, Clock, Zap, FileText, ChevronRight, X } from 'lucide-react';
+import { Send, Bot, User, BookOpen, Clock, Zap, FileText, X, CheckCircle, Loader2 } from 'lucide-react';
 import { api } from '../api/client';
 
 export function ChatTab({ activeCollection }) {
@@ -20,30 +20,82 @@ export function ChatTab({ activeCollection }) {
 
     const userQuery = input;
     setInput('');
+
+    // Add User query
     setMessages((prev) => [...prev, { role: 'user', content: userQuery }]);
+
+    // Add empty assistant message that will stream text
+    const assistantIndex = messages.length + 1;
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: 'assistant',
+        content: '',
+        citations: [],
+        streaming: true,
+        evalStatus: 'pending',
+      },
+    ]);
+
     setLoading(true);
 
     try {
-      const res = await api.queryRAG(activeCollection, userQuery, 5);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: res.answer,
-          citations: res.citations || [],
-          model: res.model,
-          latency: res.latency_ms,
+      await api.streamQueryRAG(
+        activeCollection,
+        userQuery,
+        (citations) => {
+          // On Citations received
+          setMessages((prev) =>
+            prev.map((msg, i) => (i === assistantIndex ? { ...msg, citations } : msg))
+          );
         },
-      ]);
+        (token) => {
+          // On Token received
+          setMessages((prev) =>
+            prev.map((msg, i) =>
+              i === assistantIndex ? { ...msg, content: msg.content + token } : msg
+            )
+          );
+        },
+        (doneData) => {
+          // On Stream Done
+          setMessages((prev) =>
+            prev.map((msg, i) =>
+              i === assistantIndex
+                ? {
+                    ...msg,
+                    streaming: false,
+                    latency: doneData.latency_ms,
+                    traceId: doneData.trace_id,
+                    evalStatus: 'evaluating',
+                  }
+                : msg
+            )
+          );
+
+          // Poll for background eval status completion
+          setTimeout(() => {
+            setMessages((prev) =>
+              prev.map((msg, i) =>
+                i === assistantIndex ? { ...msg, evalStatus: 'done' } : msg
+              )
+            );
+          }, 3000);
+        },
+        5
+      );
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `⚠️ Error executing query: ${err.message}`,
-          citations: [],
-        },
-      ]);
+      setMessages((prev) =>
+        prev.map((msg, i) =>
+          i === assistantIndex
+            ? {
+                ...msg,
+                content: `⚠️ Error executing query: ${err.message}`,
+                streaming: false,
+              }
+            : msg
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -73,7 +125,7 @@ export function ChatTab({ activeCollection }) {
                     : 'bg-slate-900/90 border border-slate-800 text-slate-200 rounded-bl-none'
                 }`}
               >
-                <div className="whitespace-pre-wrap">{msg.content}</div>
+                <div className="whitespace-pre-wrap">{msg.content || (msg.streaming && '...')}</div>
 
                 {/* Citations bar */}
                 {msg.citations && msg.citations.length > 0 && (
@@ -96,15 +148,30 @@ export function ChatTab({ activeCollection }) {
                   </div>
                 )}
 
-                {/* Meta details */}
-                {msg.model && (
-                  <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-3 font-mono">
-                    <span className="flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-amber-400" /> {msg.model.split('/').pop()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-slate-400" /> {msg.latency ? `${(msg.latency / 1000).toFixed(1)}s` : ''}
-                    </span>
+                {/* Meta details & Evaluation Badge */}
+                {msg.role === 'assistant' && !msg.streaming && msg.latency && (
+                  <div className="mt-3 pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400 font-mono">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1">
+                        <Zap className="w-3 h-3 text-amber-400" /> Fast Stream
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" /> {(msg.latency / 1000).toFixed(2)}s
+                      </span>
+                    </div>
+
+                    {/* Async Eval Badge */}
+                    {msg.evalStatus === 'evaluating' && (
+                      <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 animate-pulse">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Evaluating quality...
+                      </span>
+                    )}
+
+                    {msg.evalStatus === 'done' && (
+                      <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                        <CheckCircle className="w-3 h-3" /> Async Evaluated
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -117,7 +184,7 @@ export function ChatTab({ activeCollection }) {
             </div>
           ))}
 
-          {loading && (
+          {loading && messages[messages.length - 1]?.content === '' && (
             <div className="flex gap-4 justify-start items-center">
               <div className="w-8 h-8 rounded-lg bg-primary-600/30 border border-primary-500/40 flex items-center justify-center text-primary-400">
                 <Bot className="w-4 h-4 animate-spin" />
@@ -126,7 +193,7 @@ export function ChatTab({ activeCollection }) {
                 <div className="w-2 h-2 rounded-full bg-accent-cyan animate-bounce" />
                 <div className="w-2 h-2 rounded-full bg-primary-500 animate-bounce delay-100" />
                 <div className="w-2 h-2 rounded-full bg-accent-violet animate-bounce delay-200" />
-                <span>Retrieving passages & generating grounded response...</span>
+                <span>Retrieving context & initiating token stream...</span>
               </div>
             </div>
           )}

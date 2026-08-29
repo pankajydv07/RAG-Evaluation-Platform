@@ -102,6 +102,31 @@ class GroqProvider(LLMProvider):
             raw_response=response.model_dump(),
         )
 
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 2048,
+        model: str | None = None,
+    ):
+        target_model = model or self.default_model
+        messages: list[dict[str, str]] = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        stream = await self.client.chat.completions.create(
+            model=target_model,
+            messages=messages,  # type: ignore
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True,
+        )
+        async for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
+
     async def generate_json(
         self,
         prompt: str,

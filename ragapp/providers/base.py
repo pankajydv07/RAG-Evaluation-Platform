@@ -39,6 +39,24 @@ class LLMProvider(ABC):
         """Generate structured JSON output validated against JSON syntax."""
         pass
 
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+        temperature: float = 0.0,
+        max_tokens: int = 2048,
+        model: str | None = None,
+    ):
+        """Yield text tokens as an async generator. Default fallback collects generate()."""
+        res = await self.generate(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model=model,
+        )
+        yield res.content
+
 
 class EmbeddingProvider(ABC):
     """Abstract interface for dense vector embeddings."""

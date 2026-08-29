@@ -8,19 +8,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#090d16',
-        surface: '#0f172a',
-        'surface-hover': '#1e293b',
+        background: '#0d0f0e',
+        surface: '#151915',
+        'surface-hover': '#20251f',
         primary: {
-          50: '#eef2ff',
-          500: '#6366f1',
-          600: '#4f46e5',
-          700: '#4338ca',
+          50: '#f5ffd9',
+          500: '#c7e86b',
+          600: '#a7c84f',
+          700: '#7f9e35',
         },
         accent: {
-          cyan: '#06b6d4',
-          emerald: '#10b981',
-          violet: '#8b5cf6',
+          cyan: '#c7e86b',
+          emerald: '#b6de63',
+          violet: '#c7e86b',
         }
       },
     },

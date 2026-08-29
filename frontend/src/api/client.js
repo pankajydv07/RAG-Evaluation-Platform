@@ -174,6 +174,14 @@ export const api = {
     return res.json();
   },
 
+  async evaluatePendingTraces(limit = 10) {
+    const res = await fetch(`${API_BASE}/eval/evaluate-pending?limit=${limit}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Failed to run pending evaluations');
+    return res.json();
+  },
+
   // A/B Testing
   async runABTest(params) {
     const res = await fetch(`${API_BASE}/eval/ab-test`, {
@@ -187,4 +195,5 @@ export const api = {
     }
     return res.json();
   },
+
 };

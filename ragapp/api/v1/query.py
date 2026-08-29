@@ -20,21 +20,24 @@ async def run_background_eval(
     generated_answer: str,
 ):
     """Background task to run LLM-as-a-judge without blocking user response."""
+    import uuid as _uuid
     try:
+        t_id = _uuid.UUID(str(trace_id)) if not isinstance(trace_id, _uuid.UUID) else trace_id
         session_factory = get_session_factory()
         async with session_factory() as session:
             judge_provider = get_llm_provider(role="judge")
             eval_service = EvalService(session, judge_provider)
             await eval_service.evaluate_trace_async(
-                trace_id=trace_id,
+                trace_id=t_id,
                 context_texts=context_texts,
                 query_text=query_text,
                 generated_answer=generated_answer,
             )
             await session.commit()
+            print(f"[EVAL SUCCESS] Evaluated trace {t_id}")
     except Exception as exc:
-        # Avoid crashing app from background eval task
-        print(f"Background evaluation error on trace {trace_id}: {exc}")
+        print(f"[EVAL ERROR] Background evaluation error on trace {trace_id}: {exc}")
+
 
 
 @router.post("", response_model=QueryResponse, status_code=status.HTTP_200_OK)
@@ -111,12 +114,13 @@ async def query_rag_stream(
             yield f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n"
 
         if last_done_payload:
-            background_tasks.add_task(
-                run_background_eval,
-                last_done_payload["trace_id"],
-                payload.query,
-                last_done_payload["context_texts"],
-                last_done_payload["generated_answer"],
+            asyncio.create_task(
+                run_background_eval(
+                    last_done_payload["trace_id"],
+                    payload.query,
+                    last_done_payload["context_texts"],
+                    last_done_payload["generated_answer"],
+                )
             )
 
     return StreamingResponse(
@@ -124,3 +128,4 @@ async def query_rag_stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
+

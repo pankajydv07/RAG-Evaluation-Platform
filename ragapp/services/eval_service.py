@@ -52,8 +52,44 @@ class EvalService:
         stats = await self.trace_repo.get_mean_eval_metrics()
         return AggregateEvalMetrics(**stats)
 
+    async def evaluate_all_pending_traces(self, limit: int = 10) -> int:
+        from sqlalchemy import select
+        from ragapp.storage.models import Passage
+        
+        pending_traces = await self.trace_repo.get_unevaluated_traces(limit=limit)
+        evaluated_count = 0
+        for trace in pending_traces:
+            try:
+                # Resolve context texts from passage IDs
+                passage_ids = [uuid.UUID(str(pid)) for pid in (trace.retrieved_passage_ids or [])]
+                if passage_ids:
+                    stmt = select(Passage.text).where(Passage.id.in_(passage_ids))
+                    res = await self.session.execute(stmt)
+                    context_texts = list(res.scalars().all())
+                else:
+                    context_texts = []
+
+                await self.evaluate_trace_async(
+                    trace_id=trace.id,
+                    context_texts=context_texts,
+                    query_text=trace.query_text,
+                    generated_answer=trace.generated_answer or "",
+                )
+                evaluated_count += 1
+            except Exception as e:
+                await self.session.rollback()
+                print(f"[EVAL PENDING ERROR] Failed on trace {getattr(trace, 'id', 'unknown')}: {e}")
+        
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+        return evaluated_count
+
+
     async def list_traces(
         self, offset: int = 0, limit: int = 50
     ) -> tuple[list[QueryTraceResponse], int]:
         traces = await self.trace_repo.list_traces(offset=offset, limit=limit)
         return [QueryTraceResponse.model_validate(t) for t in traces], len(traces)
+

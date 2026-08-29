@@ -29,3 +29,17 @@ async def list_evaluation_traces(
     service = EvalService(session, judge_provider)
     traces, _ = await service.list_traces(offset=offset, limit=limit)
     return traces
+
+
+@router.post("/evaluate-pending")
+async def evaluate_pending_traces(
+    limit: int = 10,
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Trigger background or on-demand judge evaluations for unevaluated traces."""
+    judge_provider = get_llm_provider(role="judge")
+    service = EvalService(session, judge_provider)
+    count = await service.evaluate_all_pending_traces(limit=limit)
+    return {"status": "ok", "evaluated_count": count}
+
+

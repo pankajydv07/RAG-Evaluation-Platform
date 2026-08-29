@@ -28,19 +28,20 @@ def get_engine() -> AsyncEngine:
 
         if db_url.startswith("sqlite"):
             from sqlalchemy import event
-            from sqlalchemy.engine import Engine
 
             _engine = create_async_engine(
                 db_url,
                 echo=(settings.log_level.upper() == "DEBUG"),
+                connect_args={"timeout": 30.0},
             )
 
             @event.listens_for(_engine.sync_engine, "connect")
             def set_sqlite_pragma(dbapi_connection, connection_record):
                 cursor = dbapi_connection.cursor()
                 cursor.execute("PRAGMA journal_mode=WAL")
-                cursor.execute("PRAGMA busy_timeout=15000")
+                cursor.execute("PRAGMA busy_timeout=30000")
                 cursor.close()
+
         else:
             _engine = create_async_engine(
                 db_url,
@@ -77,7 +78,6 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency injection provider yielding an async database session."""
-    await init_db()
     factory = get_session_factory()
     async with factory() as session:
         try:
@@ -86,3 +86,4 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+

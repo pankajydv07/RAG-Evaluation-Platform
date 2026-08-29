@@ -75,6 +75,20 @@ class TraceRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_unevaluated_traces(self, limit: int = 20) -> list[QueryTrace]:
+        stmt = (
+            select(QueryTrace)
+            .options(selectinload(QueryTrace.eval_runs))
+            .outerjoin(EvalRun, QueryTrace.id == EvalRun.trace_id)
+            .where(EvalRun.id.is_(None))
+            .where(QueryTrace.generated_answer.is_not(None))
+            .order_by(QueryTrace.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+
     async def get_mean_eval_metrics(self) -> dict[str, float]:
         stmt = select(
             func.count(QueryTrace.id).label("total_traces"),

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
-import { ChatTab } from './components/ChatTab';
+import { LandingPage } from './components/LandingPage';
+import { ChatLayout } from './components/ChatLayout';
 import { IngestionTab } from './components/IngestionTab';
 import { TracesTab } from './components/TracesTab';
 import { ABTestTab } from './components/ABTestTab';
 import { api } from './api/client';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState('chat');
+  const [activeTab, setActiveTab] = useState('home');
   const [collections, setCollections] = useState([]);
   const [activeCollection, setActiveCollection] = useState('system-design');
 
@@ -15,20 +16,18 @@ export function App() {
     try {
       const res = await api.getCollections();
       setCollections(res.items || []);
-      if (res.items && res.items.length > 0 && !res.items.find((c) => c.name === activeCollection)) {
+      if (res.items && res.items.length > 0 && !res.items.find(c => c.name === activeCollection)) {
         setActiveCollection(res.items[0].name);
       }
     } catch (err) {
-      console.error('Error fetching collections:', err);
+      console.error('Failed to load collections:', err);
     }
   };
 
-  useEffect(() => {
-    loadCollections();
-  }, []);
+  useEffect(() => { loadCollections(); }, []);
 
   return (
-    <div className="min-h-screen bg-background text-slate-100 flex flex-col selection:bg-primary-600 selection:text-white">
+    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--surface-0)' }}>
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -36,9 +35,15 @@ export function App() {
         activeCollection={activeCollection}
         setActiveCollection={setActiveCollection}
       />
-
-      <main className="flex-1">
-        {activeTab === 'chat' && <ChatTab activeCollection={activeCollection} />}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: activeTab === 'chat' ? 'hidden' : 'auto' }}>
+        {activeTab === 'home' && (
+          <LandingPage
+            collections={collections}
+            activeCollection={activeCollection}
+            onNavigate={setActiveTab}
+          />
+        )}
+        {activeTab === 'chat' && <ChatLayout activeCollection={activeCollection} />}
         {activeTab === 'ingestion' && (
           <IngestionTab
             collections={collections}

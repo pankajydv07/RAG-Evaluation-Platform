@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Bot, User, BookOpen, Clock, Zap, FileText, X, CheckCircle, Loader2 } from 'lucide-react';
+import { Send, Bot, User, BookOpen, Clock, Zap, FileText, X, CheckCircle, Loader2, GitMerge, LayoutList } from 'lucide-react';
 import { api } from '../api/client';
 
 export function ChatTab({ activeCollection }) {
@@ -13,6 +13,7 @@ export function ChatTab({ activeCollection }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedCitation, setSelectedCitation] = useState(null);
+  const [enableMultiQuery, setEnableMultiQuery] = useState(false);
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -21,10 +22,8 @@ export function ChatTab({ activeCollection }) {
     const userQuery = input;
     setInput('');
 
-    // Add User query
-    setMessages((prev) => [...prev, { role: 'user', content: userQuery }]);
+    setMessages((prev) => [...prev, { role: 'user', content: userQuery, multiQuery: enableMultiQuery }]);
 
-    // Add empty assistant message that will stream text
     const assistantIndex = messages.length + 1;
     setMessages((prev) => [
       ...prev,
@@ -34,6 +33,7 @@ export function ChatTab({ activeCollection }) {
         citations: [],
         streaming: true,
         evalStatus: 'pending',
+        multiQuery: enableMultiQuery,
       },
     ]);
 
@@ -44,13 +44,11 @@ export function ChatTab({ activeCollection }) {
         activeCollection,
         userQuery,
         (citations) => {
-          // On Citations received
           setMessages((prev) =>
             prev.map((msg, i) => (i === assistantIndex ? { ...msg, citations } : msg))
           );
         },
         (token) => {
-          // On Token received
           setMessages((prev) =>
             prev.map((msg, i) =>
               i === assistantIndex ? { ...msg, content: msg.content + token } : msg
@@ -58,7 +56,6 @@ export function ChatTab({ activeCollection }) {
           );
         },
         (doneData) => {
-          // On Stream Done
           setMessages((prev) =>
             prev.map((msg, i) =>
               i === assistantIndex
@@ -72,8 +69,6 @@ export function ChatTab({ activeCollection }) {
                 : msg
             )
           );
-
-          // Poll for background eval status completion
           setTimeout(() => {
             setMessages((prev) =>
               prev.map((msg, i) =>
@@ -82,17 +77,16 @@ export function ChatTab({ activeCollection }) {
             );
           }, 3000);
         },
-        5
+        5,
+        null,
+        enableMultiQuery,
+        true
       );
     } catch (err) {
       setMessages((prev) =>
         prev.map((msg, i) =>
           i === assistantIndex
-            ? {
-                ...msg,
-                content: `⚠️ Error executing query: ${err.message}`,
-                streaming: false,
-              }
+            ? { ...msg, content: `⚠️ Error: ${err.message}`, streaming: false }
             : msg
         )
       );
@@ -125,9 +119,16 @@ export function ChatTab({ activeCollection }) {
                     : 'bg-slate-900/90 border border-slate-800 text-slate-200 rounded-bl-none'
                 }`}
               >
-                <div className="whitespace-pre-wrap">{msg.content || (msg.streaming && '...')}</div>
+                {/* Multi-query badge on user messages */}
+                {msg.role === 'user' && msg.multiQuery && (
+                  <div className="mb-2 flex items-center gap-1.5 text-[10px] text-indigo-200 font-mono">
+                    <GitMerge className="w-3 h-3" /> Multi-Query Fusion
+                  </div>
+                )}
 
-                {/* Citations bar */}
+                <div className="whitespace-pre-wrap">{msg.content || (msg.streaming && <span className="inline-flex gap-1 items-center"><span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-bounce" /><span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-bounce delay-100" /><span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-bounce delay-200" /></span>)}</div>
+
+                {/* Citations */}
                 {msg.citations && msg.citations.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
                     <span className="text-xs text-slate-400 flex items-center gap-1 font-medium">
@@ -148,25 +149,28 @@ export function ChatTab({ activeCollection }) {
                   </div>
                 )}
 
-                {/* Meta details & Evaluation Badge */}
+                {/* Meta + Eval badge */}
                 {msg.role === 'assistant' && !msg.streaming && msg.latency && (
                   <div className="mt-3 pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400 font-mono">
                     <div className="flex items-center gap-3">
+                      {msg.multiQuery && (
+                        <span className="flex items-center gap-1 text-indigo-400">
+                          <GitMerge className="w-3 h-3" /> RAG-Fusion
+                        </span>
+                      )}
                       <span className="flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-amber-400" /> Fast Stream
+                        <LayoutList className="w-3 h-3 text-emerald-400" /> Reordered
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-400" /> {(msg.latency / 1000).toFixed(2)}s
                       </span>
                     </div>
 
-                    {/* Async Eval Badge */}
                     {msg.evalStatus === 'evaluating' && (
                       <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 animate-pulse">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Evaluating quality...
+                        <Loader2 className="w-3 h-3 animate-spin" /> Evaluating...
                       </span>
                     )}
-
                     {msg.evalStatus === 'done' && (
                       <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                         <CheckCircle className="w-3 h-3" /> Async Evaluated
@@ -183,40 +187,54 @@ export function ChatTab({ activeCollection }) {
               )}
             </div>
           ))}
-
-          {loading && messages[messages.length - 1]?.content === '' && (
-            <div className="flex gap-4 justify-start items-center">
-              <div className="w-8 h-8 rounded-lg bg-primary-600/30 border border-primary-500/40 flex items-center justify-center text-primary-400">
-                <Bot className="w-4 h-4 animate-spin" />
-              </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-400 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-accent-cyan animate-bounce" />
-                <div className="w-2 h-2 rounded-full bg-primary-500 animate-bounce delay-100" />
-                <div className="w-2 h-2 rounded-full bg-accent-violet animate-bounce delay-200" />
-                <span>Retrieving context & initiating token stream...</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Input Bar */}
-        <form onSubmit={handleSend} className="p-4 border-t border-slate-800 bg-slate-950/60 flex gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={`Ask a question based on "${activeCollection}"...`}
-            className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || loading}
-            className="px-5 py-3 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-primary-600/20"
-          >
-            <span>Send</span>
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
+        <div className="border-t border-slate-800 bg-slate-950/60">
+          {/* Toolbar row */}
+          <div className="px-4 pt-3 pb-1 flex items-center gap-3">
+            <button
+              id="toggle-multi-query"
+              type="button"
+              onClick={() => setEnableMultiQuery((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                enableMultiQuery
+                  ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
+                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+              }`}
+              title="Enable Multi-Query RAG-Fusion: generate 3 query variations and merge results via RRF"
+            >
+              <GitMerge className="w-3.5 h-3.5" />
+              Multi-Query Fusion
+              {enableMultiQuery && (
+                <span className="ml-1 w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              )}
+            </button>
+            <span className="text-[10px] text-slate-600">
+              {enableMultiQuery
+                ? 'Generates 3 query variations → RRF fusion → Lost-in-the-Middle reorder'
+                : 'Standard dense retrieval + reranking + Lost-in-the-Middle reorder'}
+            </span>
+          </div>
+
+          <form onSubmit={handleSend} className="p-4 pt-2 flex gap-3">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={`Ask a question based on "${activeCollection}"...`}
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-primary-500 transition-colors"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading}
+              className="px-5 py-3 bg-primary-600 hover:bg-primary-500 disabled:opacity-50 text-white rounded-xl font-medium text-sm transition-all flex items-center gap-2 shadow-lg shadow-primary-600/20"
+            >
+              <span>Send</span>
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* Citation Detail Drawer */}

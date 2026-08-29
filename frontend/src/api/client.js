@@ -104,7 +104,7 @@ export const api = {
     return res.json();
   },
 
-  async streamQueryRAG(collectionName, query, onCitations, onToken, onDone, topK = 5, model = null) {
+  async streamQueryRAG(collectionName, query, onCitations, onToken, onDone, topK = 5, model = null, enableMultiQuery = false, enableLostInMiddleReorder = true) {
     const res = await fetch(`${API_BASE}/query/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -113,6 +113,8 @@ export const api = {
         query,
         top_k: topK,
         model,
+        enable_multi_query: enableMultiQuery,
+        enable_lost_in_middle_reorder: enableLostInMiddleReorder,
       }),
     });
     if (!res.ok) {

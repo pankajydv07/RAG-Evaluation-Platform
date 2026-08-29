@@ -1,0 +1,72 @@
+[
+  {
+    "id": "GOLD-001",
+    "collection_name": "system-design",
+    "question": "How does consistent hashing solve the rehashing problem in distributed caching?",
+    "ground_truth_answer": "Consistent hashing maps servers and keys to a hash ring, ensuring that when a server is added or removed, only a small fraction (k/n) of keys require redistribution instead of rehashing all keys.",
+    "expected_keywords": ["hash ring", "redistributed", "servers", "keys"]
+  },
+  {
+    "id": "GOLD-002",
+    "collection_name": "system-design",
+    "question": "What is the difference between vertical scaling and horizontal scaling?",
+    "ground_truth_answer": "Vertical scaling (scale up) means adding more power (CPU, RAM) to an existing server, whereas horizontal scaling (scale out) means adding more servers to your pool of resources.",
+    "expected_keywords": ["scale up", "scale out", "servers", "power"]
+  },
+  {
+    "id": "GOLD-003",
+    "collection_name": "system-design",
+    "question": "What is the role of a load balancer in a high-traffic web application?",
+    "ground_truth_answer": "A load balancer evenly distributes incoming network traffic across multiple backend web servers to prevent server overload, improve availability, and provide failover capability.",
+    "expected_keywords": ["distributes", "traffic", "servers", "availability"]
+  },
+  {
+    "id": "GOLD-004",
+    "collection_name": "system-design",
+    "question": "Why is database replication used in system architecture?",
+    "ground_truth_answer": "Database replication (such as master-slave/primary-replica) improves performance by offloading read queries to replicas, enhances reliability through data backups, and provides high availability during failover.",
+    "expected_keywords": ["replicas", "master", "slave", "read", "write"]
+  },
+  {
+    "id": "GOLD-005",
+    "collection_name": "system-design",
+    "question": "What is a Content Delivery Network (CDN) and how does it reduce latency?",
+    "ground_truth_answer": "A CDN is a geographically distributed network of proxy servers that caches static content (images, videos, CSS/JS) closer to end users, reducing the geographic round-trip latency and offloading web servers.",
+    "expected_keywords": ["CDN", "cache", "static", "geographically", "latency"]
+  },
+  {
+    "id": "GOLD-006",
+    "collection_name": "system-design",
+    "question": "How do virtual nodes in consistent hashing help distribute data evenly?",
+    "ground_truth_answer": "Virtual nodes assign multiple virtual points on the hash ring to a single physical server, preventing data skew and hotspot issues by ensuring a more uniform distribution of key partitions.",
+    "expected_keywords": ["virtual nodes", "hash ring", "uniform", "hotspot"]
+  },
+  {
+    "id": "GOLD-007",
+    "collection_name": "system-design",
+    "question": "What is the purpose of caching at the database tier and application tier?",
+    "ground_truth_answer": "Caching stores the results of expensive database queries or frequently requested data in fast in-memory stores (like Redis or Memcached), drastically reducing database load and speeding up response times.",
+    "expected_keywords": ["cache", "memory", "database", "load", "response"]
+  },
+  {
+    "id": "GOLD-008",
+    "collection_name": "system-design",
+    "question": "What is stateless architecture and why is it beneficial for scaling web tiers?",
+    "ground_truth_answer": "In a stateless architecture, user session data is stored in external persistent storage (like a database or shared cache) rather than on the individual web server, allowing requests to be routed to any server seamlessly.",
+    "expected_keywords": ["stateless", "session", "shared", "server"]
+  },
+  {
+    "id": "GOLD-009",
+    "collection_name": "system-design",
+    "question": "What is the role of message queues in asynchronous system design?",
+    "ground_truth_answer": "Message queues decouple components, buffer bursts of high traffic, and enable asynchronous processing for time-consuming background tasks without blocking user requests.",
+    "expected_keywords": ["queue", "decouple", "asynchronous", "buffer"]
+  },
+  {
+    "id": "GOLD-010",
+    "collection_name": "system-design",
+    "question": "How does database sharding work and what challenges does it introduce?",
+    "ground_truth_answer": "Database sharding separates large databases into smaller, distinct parts (shards) based on a sharding key, but introduces challenges like resharding, celebrity/hotspot keys, and cross-shard joins.",
+    "expected_keywords": ["sharding", "shards", "key", "joins"]
+  }
+]

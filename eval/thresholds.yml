@@ -1,0 +1,17 @@
+# ========================================================
+# Version-Controlled Evaluation Quality Thresholds
+# Used by CI/CD regression evaluation gate
+# ========================================================
+
+version: "1.0.0"
+dataset: "ragapp/eval/golden_dataset.json"
+
+thresholds:
+  faithfulness: 0.85          # Minimum average groundedness (0.0 - 1.0)
+  answer_relevance: 0.80      # Minimum average question-answering accuracy (0.0 - 1.0)
+  context_precision: 0.75     # Minimum average retrieval precision (0.0 - 1.0)
+  max_avg_latency_ms: 120000.0 # Maximum avg E2E query latency (ms); external LLM APIs incur network latency
+
+gate_rules:
+  fail_on_single_zero: true   # Fail immediately if any answer gets a 0.0 faithfulness score
+  strict_mode: true

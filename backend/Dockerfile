@@ -22,8 +22,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 # Copy project specification & dependencies
 COPY pyproject.toml .
 
-# Install dependencies into system environment
-RUN uv pip install --system --no-cache -r pyproject.toml
+# Install dependencies into system environment (CPU PyTorch to optimize build speed & size)
+RUN uv pip install --system --no-cache --extra-index-url https://download.pytorch.org/whl/cpu -r pyproject.toml
 
 # Copy backend application source code
 COPY backend/ ./backend/

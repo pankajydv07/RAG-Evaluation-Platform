@@ -1,174 +1,165 @@
 import React, { useState } from 'react';
-import { AlertCircle, Check, GitCompare, Play } from 'lucide-react';
+import { Play, Sparkles, Trophy, CheckCircle2, Clock, Cpu, Scale } from 'lucide-react';
 import { api } from '../api/client';
 
 export function ABTestTab({ activeCollection }) {
-  const [query, setQuery] = useState('How does consistent hashing solve the rehashing problem in distributed caching?');
-  const [providerA, setProviderA] = useState('groq');
+  const [query, setQuery] = useState('What is consistent hashing and how does it prevent hot spots?');
   const [modelA, setModelA] = useState('openai/gpt-oss-120b');
-  const [providerB, setProviderB] = useState('nebius');
-  const [modelB, setModelB] = useState('meta-llama/Llama-3.3-70B-Instruct');
+  const [modelB, setModelB] = useState('qwen/qwen3.6-27b');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
 
-  const handleRunAB = async (event) => {
-    event.preventDefault();
-    if (!query.trim()) return;
+  const handleRunAB = async (e) => {
+    e.preventDefault();
+    if (!query.trim() || loading) return;
+
     setLoading(true);
-    setResult(null);
-    setError(null);
-
     try {
-      const response = await api.runABTest({
-        collection_name: activeCollection,
+      const res = await api.runABTest({
+        collection_name: activeCollection || 'system-design',
         query: query.trim(),
-        provider_a: providerA,
         model_a: modelA,
-        provider_b: providerB,
         model_b: modelB,
-        judge_provider: 'groq',
-        judge_model: 'qwen/qwen3.6-27b',
+        top_k: 5,
+        enable_reranker: true,
       });
-      setResult(response);
+      setResult(res);
     } catch (err) {
-      setError(err.message);
+      console.error('A/B Test error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const winner = result?.judge_evaluation?.winner;
-
   return (
-    <section className="app-page wide">
-      <header className="page-head">
-        <div>
-          <h2>Compare model answers.</h2>
-          <p>
-            Run two generators against the same retrieved context from
-            {' '}<span className="font-mono" style={{ color: 'var(--accent)' }}>{activeCollection}</span>.
+    <div style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+      <div className="swiss-container">
+        {/* Header */}
+        <div style={{ borderBottom: '1px solid var(--hairline-heavy)', paddingBottom: 24, marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span className="index-num">SYSTEM // 04</span>
+            <span className="meta-label">A/B HEAD-TO-HEAD BENCHMARK MATRIX</span>
+          </div>
+          <h2>MODEL ARBITRATION BENCHMARK</h2>
+          <p style={{ color: 'var(--ink-secondary)', marginTop: 6, maxWidth: 640 }}>
+            Execute identical retrieval passes against both Generator A and Generator B. An independent LLM-as-a-Judge arbitrates the responses and declares the superior synthesis.
           </p>
         </div>
-      </header>
 
-      <form className="panel panel-pad form-stack" onSubmit={handleRunAB}>
-        <div className="compare-grid">
-          <div className="model-panel">
-            <header>
-              <strong>Model A</strong>
-              <select value={providerA} onChange={(event) => setProviderA(event.target.value)}>
-                <option value="groq">Groq</option>
-                <option value="nebius">Nebius</option>
-              </select>
-            </header>
-            <div className="field">
-              <label htmlFor="model-a">Model ID</label>
+        {/* Input Configuration */}
+        <div className="swiss-card" style={{ marginBottom: 32 }}>
+          <form onSubmit={handleRunAB} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div>
+              <label className="meta-label">BENCHMARK TEST QUERY</label>
               <input
-                id="model-a"
-                className="input-base font-mono"
-                value={modelA}
-                onChange={(event) => setModelA(event.target.value)}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="input-field"
+                style={{ marginTop: 6 }}
               />
             </div>
-          </div>
 
-          <div className="model-panel">
-            <header>
-              <strong>Model B</strong>
-              <select value={providerB} onChange={(event) => setProviderB(event.target.value)}>
-                <option value="nebius">Nebius</option>
-                <option value="groq">Groq</option>
-              </select>
-            </header>
-            <div className="field">
-              <label htmlFor="model-b">Model ID</label>
-              <input
-                id="model-b"
-                className="input-base font-mono"
-                value={modelB}
-                onChange={(event) => setModelB(event.target.value)}
-              />
+            <div className="swiss-grid-12">
+              <div style={{ gridColumn: 'span 6' }}>
+                <label className="meta-label">GENERATOR MODEL A</label>
+                <input
+                  type="text"
+                  value={modelA}
+                  onChange={(e) => setModelA(e.target.value)}
+                  className="input-field"
+                  style={{ marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: 12.5 }}
+                />
+              </div>
+              <div style={{ gridColumn: 'span 6' }}>
+                <label className="meta-label">GENERATOR MODEL B</label>
+                <input
+                  type="text"
+                  value={modelB}
+                  onChange={(e) => setModelB(e.target.value)}
+                  className="input-field"
+                  style={{ marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: 12.5 }}
+                />
+              </div>
             </div>
-          </div>
+
+            <button type="submit" disabled={loading || !query.trim()} className="btn btn-swiss" style={{ alignSelf: 'flex-start' }}>
+              {loading ? (
+                <span>Arbitrating Models...</span>
+              ) : (
+                <>
+                  <Play size={13} fill="currentColor" />
+                  <span>Execute Head-to-Head Benchmark</span>
+                </>
+              )}
+            </button>
+          </form>
         </div>
 
-        <div className="field">
-          <label htmlFor="ab-query">Question</label>
-          <input
-            id="ab-query"
-            className="input-base"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-
-        <button type="submit" disabled={loading || !query.trim()} className="btn-primary">
-          <Play size={16} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Running comparison' : 'Run comparison'}
-        </button>
-      </form>
-
-      {error && (
-        <div className="status-box error fade-up">
-          <AlertCircle size={18} />
+        {/* Results Matrix */}
+        {result && (
           <div>
-            <strong>Comparison failed</strong>
-            <p className="help-text">{error}</p>
-          </div>
-        </div>
-      )}
+            {/* Winner Callout */}
+            <div
+              style={{
+                border: '1px solid var(--hairline-heavy)',
+                background: '#FFFFFF',
+                padding: 24,
+                marginBottom: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div>
+                <span className="index-num">JUDGE ARBITRATION RESULT</span>
+                <h3 style={{ marginTop: 6, fontSize: 18 }}>
+                  WINNER: <span style={{ color: 'var(--swiss-red)' }}>MODEL {result.winner.toUpperCase()}</span> ({result.winner === 'A' ? result.model_a : result.model_b})
+                </h3>
+                <p style={{ color: 'var(--ink-secondary)', marginTop: 4, fontSize: 13.5 }}>
+                  {result.critique}
+                </p>
+              </div>
+              <Trophy size={36} style={{ color: 'var(--swiss-red)', flexShrink: 0, marginLeft: 24 }} />
+            </div>
 
-      {result && (
-        <div className="fade-up">
-          <div className="judge-box">
-            <header className="model-panel-header">
-              <strong>
-                Judge verdict:{' '}
-                {winner === 'tie' ? 'Tie' : `Model ${winner} wins`}
-              </strong>
-              <span className="chip">
-                <GitCompare size={12} />
-                {result.judge_evaluation.judge_model}
-              </span>
-            </header>
-            <p>{result.judge_evaluation.critique}</p>
-          </div>
+            {/* Side by Side Comparison Grid */}
+            <div className="swiss-grid-12">
+              {/* Model A */}
+              <div style={{ gridColumn: 'span 6' }}>
+                <div className="swiss-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--hairline)', paddingBottom: 12 }}>
+                    <div>
+                      <span className="index-num">CANDIDATE A</span>
+                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 2 }}>{result.model_a}</div>
+                    </div>
+                    <span className="swiss-chip">{(result.latency_a_ms / 1000).toFixed(2)}s</span>
+                  </div>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink-primary)', whiteSpace: 'pre-wrap' }}>
+                    {result.response_a}
+                  </div>
+                </div>
+              </div>
 
-          <div className="results-grid">
-            <ResultPanel
-              label="Model A"
-              result={result.model_a_result}
-              score={result.judge_evaluation.model_a_score}
-              winner={winner === 'A'}
-            />
-            <ResultPanel
-              label="Model B"
-              result={result.model_b_result}
-              score={result.judge_evaluation.model_b_score}
-              winner={winner === 'B'}
-            />
+              {/* Model B */}
+              <div style={{ gridColumn: 'span 6' }}>
+                <div className="swiss-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--hairline)', paddingBottom: 12 }}>
+                    <div>
+                      <span className="index-num">CANDIDATE B</span>
+                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 2 }}>{result.model_b}</div>
+                    </div>
+                    <span className="swiss-chip">{(result.latency_b_ms / 1000).toFixed(2)}s</span>
+                  </div>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink-primary)', whiteSpace: 'pre-wrap' }}>
+                    {result.response_b}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ResultPanel({ label, result, score, winner }) {
-  return (
-    <article className={`result-panel ${winner ? 'winner' : ''}`}>
-      <header>
-        <div>
-          <strong>{label}</strong>
-          <p className="help-text font-mono">{result.provider} / {result.model}</p>
-        </div>
-        <span className="chip">
-          {winner && <Check size={12} />}
-          {(score * 100).toFixed(1)}%
-        </span>
-      </header>
-      <p className="font-mono" style={{ whiteSpace: 'pre-wrap' }}>{result.answer}</p>
-    </article>
+        )}
+      </div>
+    </div>
   );
 }

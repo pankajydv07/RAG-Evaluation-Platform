@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
 import {
   Activity,
   BarChart3,
@@ -7,11 +6,10 @@ import {
   Clock,
   Cpu,
   RefreshCw,
-  Play,
-  ShieldCheck,
+  Sparkles,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
+  FileText,
 } from 'lucide-react';
 import { api } from '../api/client';
 
@@ -41,10 +39,10 @@ export function TracesTab() {
     setMessage(null);
     try {
       const res = await api.evaluatePendingTraces(10);
-      setMessage(`Successfully ran evaluations on ${res.evaluated_count} pending trace(s).`);
+      setMessage(`Evaluated ${res.evaluated_count} pending trace(s).`);
       await loadData();
     } catch (err) {
-      setMessage(`Evaluation failed: ${err.message}`);
+      setMessage(`Evaluation error: ${err.message}`);
     } finally {
       setEvaluatingPending(false);
     }
@@ -54,187 +52,224 @@ export function TracesTab() {
     loadData();
   }, []);
 
-  const unevaluatedCount = traces.filter(t => !t.eval_runs || t.eval_runs.length === 0).length;
+  const unevaluatedCount = traces.filter((t) => !t.eval_runs || t.eval_runs.length === 0).length;
 
   return (
-    <section className="app-page wide">
-      <header className="page-head">
-        <div>
-          <h2>Evaluation & Quality Traces</h2>
-          <p>Inspect retrieval telemetry, end-to-end latency, and LLM-as-a-Judge scores from your queries.</p>
+    <div style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+      <div className="swiss-container">
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--hairline-heavy)', paddingBottom: 24, marginBottom: 32 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span className="index-num">SYSTEM // 05</span>
+              <span className="meta-label">LLM-AS-A-JUDGE OBSERVATORY</span>
+            </div>
+            <h2>EVALUATION & QUALITY TRACES</h2>
+            <p style={{ color: 'var(--ink-secondary)', marginTop: 6, maxWidth: 640 }}>
+              Continuous evaluation traces measuring Faithfulness, Answer Relevance, and Context Precision across every executed RAG query.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            {unevaluatedCount > 0 && (
+              <button
+                onClick={handleEvaluatePending}
+                disabled={evaluatingPending || loading}
+                className="btn btn-swiss"
+              >
+                <Sparkles size={13} />
+                <span>{evaluatingPending ? 'Judging Traces...' : `Evaluate ${unevaluatedCount} Pending`}</span>
+              </button>
+            )}
+            <button onClick={loadData} disabled={loading} className="btn">
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {unevaluatedCount > 0 && (
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={handleEvaluatePending}
-              disabled={evaluatingPending || loading}
-              className="btn btn-primary"
-              style={{ fontSize: 12.5 }}
-            >
-              {evaluatingPending ? (
-                <>
-                  <RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} />
-                  Judging {unevaluatedCount} trace(s)…
-                </>
-              ) : (
-                <>
-                  <Sparkles size={13} />
-                  Evaluate {unevaluatedCount} Pending
-                </>
-              )}
-            </motion.button>
-          )}
+        {message && (
+          <div
+            style={{
+              padding: '12px 16px',
+              border: '1px solid var(--signal-green)',
+              background: 'var(--signal-green-light)',
+              color: 'var(--signal-green)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 24,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+            }}
+          >
+            <CheckCircle2 size={14} />
+            <span>{message}</span>
+          </div>
+        )}
 
-          <button onClick={loadData} disabled={loading} className="btn">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
-      </header>
+        {/* Metric Strip */}
+        {summary && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--hairline)', border: '1px solid var(--hairline)', marginBottom: 32 }}>
+            <div className="metric-tile">
+              <div className="metric-tile-label">
+                <span>01 // FAITHFULNESS</span>
+                <Activity size={12} style={{ color: 'var(--swiss-red)' }} />
+              </div>
+              <div className="metric-tile-value" style={{ color: 'var(--swiss-red)' }}>
+                {(summary.mean_faithfulness * 100).toFixed(1)}%
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-secondary)', marginTop: 8 }}>
+                ZERO HALLUCINATIONS
+              </div>
+            </div>
 
-      {message && (
-        <div className="status-box success fade-up" style={{ marginBottom: 20 }}>
-          <CheckCircle2 size={16} />
-          <div>{message}</div>
-        </div>
-      )}
+            <div className="metric-tile">
+              <div className="metric-tile-label">
+                <span>02 // ANSWER RELEVANCE</span>
+                <Activity size={12} style={{ color: 'var(--signal-blue)' }} />
+              </div>
+              <div className="metric-tile-value">
+                {(summary.mean_answer_relevance * 100).toFixed(1)}%
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-secondary)', marginTop: 8 }}>
+                DIRECT FACTUAL SYNTHESIS
+              </div>
+            </div>
 
-      {/* Aggregate Metric Dials */}
-      {summary && (
-        <div className="metric-strip">
-          <Metric
-            label="Faithfulness"
-            value={`${(summary.mean_faithfulness * 100).toFixed(1)}%`}
-            color="var(--green)"
-          />
-          <Metric
-            label="Answer Relevance"
-            value={`${(summary.mean_answer_relevance * 100).toFixed(1)}%`}
-            color="var(--blue)"
-          />
-          <Metric
-            label="Context Precision"
-            value={`${(summary.mean_context_precision * 100).toFixed(1)}%`}
-            color="var(--amber)"
-          />
-          <Metric
-            label="Total Runs"
-            value={summary.total_traces}
-            sub={`${summary.evaluated_traces} evaluated`}
-          />
-        </div>
-      )}
+            <div className="metric-tile">
+              <div className="metric-tile-label">
+                <span>03 // CONTEXT PRECISION</span>
+                <Activity size={12} style={{ color: 'var(--signal-amber)' }} />
+              </div>
+              <div className="metric-tile-value">
+                {(summary.mean_context_precision * 100).toFixed(1)}%
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-secondary)', marginTop: 8 }}>
+                RETRIEVAL SIGNAL DENSITY
+              </div>
+            </div>
 
-      {/* Traces List */}
-      <div className="panel trace-list" style={{ marginTop: '1.5rem' }}>
-        {traces.length === 0 ? (
-          <div className="status-box" style={{ margin: 24, border: 0 }}>
-            <BarChart3 size={20} />
-            <div>
-              <strong>No traces logged yet</strong>
-              <p className="help-text">Ask a question in the Chat studio to record retrieval traces.</p>
+            <div className="metric-tile">
+              <div className="metric-tile-label">
+                <span>04 // EVALUATION RUNS</span>
+                <Activity size={12} style={{ color: 'var(--signal-green)' }} />
+              </div>
+              <div className="metric-tile-value">
+                {summary.total_traces}
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-secondary)', marginTop: 8 }}>
+                {summary.evaluated_traces} EVALUATED RUNS
+              </div>
             </div>
           </div>
-        ) : (
-          traces.map((trace) => {
-            const isExpanded = expandedTrace === trace.id;
-            const evalRun = trace.eval_runs && trace.eval_runs[0];
-
-            return (
-              <article key={trace.id} className="trace-row">
-                <button
-                  className="trace-trigger"
-                  onClick={() => setExpandedTrace(isExpanded ? null : trace.id)}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, paddingRight: 16 }}>
-                    <strong style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {trace.query_text}
-                    </strong>
-                    <div className="trace-meta">
-                      <span><Cpu size={11} /> {trace.generator_model || 'model'}</span>
-                      <span><Clock size={11} /> {trace.latency_ms ? `${(trace.latency_ms / 1000).toFixed(2)}s` : 'pending'}</span>
-                      <span>{new Date(trace.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                  </div>
-
-                  <div className="score-pair" style={{ flexShrink: 0 }}>
-                    {evalRun ? (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <span className="chip chip-green" style={{ fontSize: 11 }}>
-                          Faith: {(evalRun.faithfulness * 100).toFixed(0)}%
-                        </span>
-                        <span className="chip chip-blue" style={{ fontSize: 11 }}>
-                          Rel: {(evalRun.answer_relevance * 100).toFixed(0)}%
-                        </span>
-                        <span className="chip chip-amber" style={{ fontSize: 11 }}>
-                          Prec: {(evalRun.context_precision * 100).toFixed(0)}%
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="chip" style={{ color: 'var(--text-tertiary)' }}>
-                        Pending Judge
-                      </span>
-                    )}
-                    <ChevronDown size={15} style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }} />
-                  </div>
-                </button>
-
-                {isExpanded && (
-                  <div className="trace-detail fade-up">
-                    <div>
-                      <span className="field-label">Generated Answer</span>
-                      <div className="code-box" style={{ marginTop: 4 }}>{trace.generated_answer || 'No answer recorded.'}</div>
-                    </div>
-
-                    {evalRun ? (
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                          <span className="field-label" style={{ color: 'var(--green)' }}>
-                            Judge Evaluation ({evalRun.judge_model})
-                          </span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>
-                            Judge latency: {evalRun.eval_latency_ms ? `${(evalRun.eval_latency_ms / 1000).toFixed(2)}s` : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="code-box" style={{ borderColor: 'rgba(0, 240, 168, 0.25)', background: 'var(--surface-1)' }}>
-                          {evalRun.judge_critique || 'No critique provided.'}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--surface-1)', borderRadius: 'var(--r-md)', border: '1px solid var(--border)' }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                          This trace has not been evaluated by an LLM judge yet.
-                        </span>
-                        <button
-                          onClick={handleEvaluatePending}
-                          disabled={evaluatingPending}
-                          className="btn btn-primary"
-                          style={{ fontSize: 11.5, padding: '4px 10px' }}
-                        >
-                          Run Judge Now
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </article>
-            );
-          })
         )}
-      </div>
-    </section>
-  );
-}
 
-function Metric({ label, value, sub, color }) {
-  return (
-    <div className="metric">
-      <span>{label}</span>
-      <strong style={{ color: color || 'var(--text-primary)' }}>{value}</strong>
-      {sub && <p className="help-text" style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>{sub}</p>}
-      {!sub && <Activity size={14} style={{ marginTop: '0.6rem', color: color || 'var(--accent)' }} />}
+        {/* Traces Directory Table */}
+        <div style={{ border: '1px solid var(--hairline)', background: '#FFFFFF' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--hairline)', background: '#FAFAFA', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="meta-label">QUERY TRACE LOG ({traces.length} ENTRIES)</span>
+            <span className="meta-label">CRITIQUE & METRIC BREAKDOWN</span>
+          </div>
+
+          {traces.length === 0 ? (
+            <div style={{ padding: 48, textAlign: 'center' }}>
+              <BarChart3 size={24} style={{ color: 'var(--ink-tertiary)', marginBottom: 8 }} />
+              <div style={{ fontSize: 13, fontWeight: 700 }}>No telemetry traces recorded</div>
+              <p style={{ fontSize: 12, color: 'var(--ink-secondary)', marginTop: 4 }}>
+                Ask questions in the Retrieval Studio to log traces.
+              </p>
+            </div>
+          ) : (
+            traces.map((trace, idx) => {
+              const isExpanded = expandedTrace === trace.id;
+              const evalRun = trace.eval_runs && trace.eval_runs[0];
+
+              return (
+                <div key={trace.id} style={{ borderBottom: '1px solid var(--hairline)' }}>
+                  <button
+                    onClick={() => setExpandedTrace(isExpanded ? null : trace.id)}
+                    style={{
+                      width: '100%',
+                      padding: '16px 20px',
+                      background: isExpanded ? 'var(--bg-subtle)' : '#FFFFFF',
+                      border: 'none',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, paddingRight: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span className="index-num">#{String(traces.length - idx).padStart(2, '0')}</span>
+                        <strong style={{ fontSize: 13.5, color: 'var(--ink-primary)' }}>{trace.query_text}</strong>
+                      </div>
+                      <div style={{ display: 'flex', gap: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-secondary)' }}>
+                        <span>MODEL: {trace.generator_model || 'default'}</span>
+                        <span>•</span>
+                        <span>LATENCY: {trace.latency_ms ? `${(trace.latency_ms / 1000).toFixed(2)}s` : 'N/A'}</span>
+                        <span>•</span>
+                        <span>{new Date(trace.created_at).toLocaleTimeString()}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      {evalRun ? (
+                        <>
+                          <span className="swiss-chip swiss-chip-red">Faith: {(evalRun.faithfulness * 100).toFixed(0)}%</span>
+                          <span className="swiss-chip swiss-chip-blue">Rel: {(evalRun.answer_relevance * 100).toFixed(0)}%</span>
+                          <span className="swiss-chip swiss-chip-amber">Prec: {(evalRun.context_precision * 100).toFixed(0)}%</span>
+                        </>
+                      ) : (
+                        <span className="swiss-chip">PENDING JUDGE</span>
+                      )}
+                      <ChevronDown size={15} style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }} />
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div style={{ padding: 24, background: '#FAFAFA', borderTop: '1px solid var(--hairline)' }}>
+                      <div style={{ marginBottom: 20 }}>
+                        <span className="meta-label">GENERATED ANSWER</span>
+                        <div style={{ background: '#FFFFFF', border: '1px solid var(--hairline)', padding: 16, fontSize: 13, lineHeight: 1.65, marginTop: 6 }}>
+                          {trace.generated_answer || 'No answer text recorded.'}
+                        </div>
+                      </div>
+
+                      {evalRun ? (
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <span className="meta-label" style={{ color: 'var(--swiss-red)' }}>
+                              JUDGE CRITIQUE ({evalRun.judge_model})
+                            </span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-secondary)' }}>
+                              EVAL LATENCY: {evalRun.eval_latency_ms ? `${(evalRun.eval_latency_ms / 1000).toFixed(2)}s` : 'N/A'}
+                            </span>
+                          </div>
+                          <div style={{ background: '#FFFFFF', border: '1px solid var(--hairline)', padding: 16, fontSize: 13, lineHeight: 1.65, color: 'var(--ink-secondary)' }}>
+                            {evalRun.judge_critique || 'No critique recorded.'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ padding: 16, background: '#FFFFFF', border: '1px solid var(--hairline)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 12.5, color: 'var(--ink-secondary)' }}>
+                            This trace has not been evaluated by an LLM judge yet.
+                          </span>
+                          <button onClick={handleEvaluatePending} disabled={evaluatingPending} className="btn btn-swiss" style={{ padding: '6px 12px', fontSize: 11 }}>
+                            Run Judge Now
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }

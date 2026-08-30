@@ -8,7 +8,7 @@ import { ABTestTab } from './components/ABTestTab';
 import { api } from './api/client';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('overview');
   const [collections, setCollections] = useState([]);
   const [activeCollection, setActiveCollection] = useState('system-design');
 
@@ -27,7 +27,7 @@ export function App() {
   useEffect(() => { loadCollections(); }, []);
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--surface-0)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-canvas)' }}>
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -36,7 +36,7 @@ export function App() {
         setActiveCollection={setActiveCollection}
       />
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: activeTab === 'chat' ? 'hidden' : 'auto' }}>
-        {activeTab === 'home' && (
+        {activeTab === 'overview' && (
           <LandingPage
             collections={collections}
             activeCollection={activeCollection}
@@ -48,7 +48,7 @@ export function App() {
           <IngestionTab
             collections={collections}
             activeCollection={activeCollection}
-            onRefreshCollections={loadCollections}
+            onCollectionChange={loadCollections}
           />
         )}
         {activeTab === 'ab_test' && <ABTestTab activeCollection={activeCollection} />}
@@ -57,5 +57,6 @@ export function App() {
     </div>
   );
 }
+
 
 export default App;

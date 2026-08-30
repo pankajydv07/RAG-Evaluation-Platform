@@ -1,571 +1,501 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Plus, MessageSquare, Trash2, Bot, User,
-  BookOpen, Clock, GitMerge, CheckCircle,
-  Loader2, FileText, X, ArrowUp, Cpu,
+  Send,
+  Sparkles,
+  Layers,
+  Database,
+  FileText,
+  Clock,
+  ChevronRight,
+  Plus,
+  Trash2,
+  X,
+  ExternalLink,
+  Bot,
+  User,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { api } from '../api/client';
 
-/* ─── Constants ──────────────────────────────────────────────────── */
-const STORAGE_KEY = 'ragapp_v2_sessions';
-const ACTIVE_KEY  = 'ragapp_v2_active';
-
-/* ─── Helpers ────────────────────────────────────────────────────── */
-function uid() { return crypto.randomUUID(); }
-
-function newSession(collection) {
-  return { id: uid(), title: 'New chat', collection, createdAt: Date.now(), messages: [] };
-}
-
-function trunc(str, n = 28) { return str.length > n ? str.slice(0, n) + '…' : str; }
-
-function ageGroup(ts) {
-  const d = Date.now() - ts;
-  if (d < 86_400_000)      return 'Today';
-  if (d < 172_800_000)     return 'Yesterday';
-  if (d < 604_800_000)     return 'This week';
-  return 'Older';
-}
-
-function groupSessions(list) {
-  const keys = ['Today', 'Yesterday', 'This week', 'Older'];
-  const m = Object.fromEntries(keys.map(k => [k, []]));
-  list.forEach(s => m[ageGroup(s.createdAt)].push(s));
-  return keys.map(label => ({ label, items: m[label] })).filter(g => g.items.length);
-}
-
-/* ─── localStorage hook ──────────────────────────────────────────── */
-function useSessions(collection) {
+export function ChatLayout({ activeCollection }) {
   const [sessions, setSessions] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+    try {
+      const saved = localStorage.getItem('ragapp_swiss_sessions');
+      return saved ? JSON.parse(saved) : [{ id: 'default', title: 'Session #01', messages: [], createdAt: new Date().toISOString() }];
+    } catch {
+      return [{ id: 'default', title: 'Session #01', messages: [], createdAt: new Date().toISOString() }];
+    }
   });
-  const [activeId, setActiveId] = useState(() => localStorage.getItem(ACTIVE_KEY) || null);
 
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); }, [sessions]);
-  useEffect(() => { if (activeId) localStorage.setItem(ACTIVE_KEY, activeId); }, [activeId]);
+  const [activeSessionId, setActiveSessionId] = useState('default');
+  const [inputQuery, setInputQuery] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [selectedCitation, setSelectedCitation] = useState(null);
+  const [enableMultiQuery, setEnableMultiQuery] = useState(false);
+  const [enableReranker, setEnableReranker] = useState(true);
+  const [topK, setTopK] = useState(5);
 
-  const active = sessions.find(s => s.id === activeId) || null;
+  const messagesEndRef = useRef(null);
 
-  const create = useCallback(() => {
-    const s = newSession(collection);
-    setSessions(p => [s, ...p]);
-    setActiveId(s.id);
-  }, [collection]);
+  const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];
 
-  const remove = useCallback((id) => {
-    setSessions(p => {
-      const next = p.filter(s => s.id !== id);
-      if (activeId === id) setActiveId(next[0]?.id || null);
-      return next;
-    });
-  }, [activeId]);
-
-  const update = useCallback((id, fn) => {
-    setSessions(p => p.map(s => s.id === id ? fn(s) : s));
-  }, []);
-
-  return { sessions, active, activeId, setActiveId, create, remove, update };
-}
-
-/* ─── Sidebar ────────────────────────────────────────────────────── */
-function Sidebar({ sessions, activeId, setActiveId, create, remove }) {
-  const [hover, setHover] = useState(null);
-  const groups = groupSessions(sessions);
-
-  return (
-    <aside style={{
-      width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column',
-      height: '100%', background: 'var(--surface-1)',
-      borderRight: '1px solid var(--border)',
-    }}>
-      {/* Header */}
-      <div style={{ padding: '12px 10px 8px', borderBottom: '1px solid var(--border)' }}>
-        <button
-          id="new-chat-btn"
-          className="btn"
-          onClick={create}
-          style={{ width: '100%', justifyContent: 'flex-start' }}
-        >
-          <Plus size={12} strokeWidth={2} />
-          New chat
-        </button>
-      </div>
-
-      {/* Session list */}
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 16px' }}>
-        {groups.map(({ label, items }) => (
-          <div key={label} style={{ marginBottom: 12 }}>
-            <p style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10, fontWeight: 500,
-              textTransform: 'uppercase', letterSpacing: '0.09em',
-              color: 'var(--text-tertiary)',
-              padding: '0 4px', marginBottom: 3,
-            }}>{label}</p>
-
-            {items.map(s => (
-              <div
-                key={s.id}
-                className={`session-row ${s.id === activeId ? 'active' : ''}`}
-                onClick={() => setActiveId(s.id)}
-                onMouseEnter={() => setHover(s.id)}
-                onMouseLeave={() => setHover(null)}
-              >
-                <MessageSquare
-                  size={11} strokeWidth={1.5}
-                  style={{ flexShrink: 0, color: s.id === activeId ? 'var(--text-secondary)' : 'var(--text-tertiary)' }}
-                />
-                <span style={{
-                  flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  fontSize: 12.5,
-                  color: s.id === activeId ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}>
-                  {trunc(s.title)}
-                </span>
-
-                <AnimatePresence>
-                  {hover === s.id && (
-                    <motion.button
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.1 }}
-                      onClick={e => { e.stopPropagation(); remove(s.id); }}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--text-tertiary)', padding: '2px 3px',
-                        borderRadius: 'var(--r-sm)', display: 'flex', alignItems: 'center',
-                        flexShrink: 0,
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
-                      onMouseLeave={e => e.currentTarget.style.color = 'var(--text-tertiary)'}
-                    >
-                      <Trash2 size={11} strokeWidth={1.5} />
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
-          </div>
-        ))}
-
-        {sessions.length === 0 && (
-          <p style={{ color: 'var(--text-tertiary)', fontSize: 12, textAlign: 'center', marginTop: 40 }}>
-            No conversations yet
-          </p>
-        )}
-      </nav>
-    </aside>
-  );
-}
-
-/* ─── Citation panel ─────────────────────────────────────────────── */
-function CitationPanel({ citation, onClose }) {
-  return (
-    <AnimatePresence>
-      {citation && (
-        <motion.aside
-          className="slide-in-right"
-          initial={{ opacity: 0, x: 16 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 16 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          style={{
-            width: 288, flexShrink: 0, display: 'flex', flexDirection: 'column',
-            background: 'var(--surface-1)', borderLeft: '1px solid var(--border)',
-          }}
-        >
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 14px', borderBottom: '1px solid var(--border)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 500, color: 'var(--text-tertiary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              <FileText size={11} strokeWidth={1.5} /> Source
-            </div>
-            <button
-              onClick={onClose}
-              className="btn"
-              style={{ padding: '3px 5px', minWidth: 0 }}
-            >
-              <X size={12} strokeWidth={1.75} />
-            </button>
-          </div>
-
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
-            <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', fontSize: 12 }}>
-              <dt style={{ color: 'var(--text-tertiary)' }}>Similarity</dt>
-              <dd style={{ fontFamily: 'var(--font-mono)', color: 'var(--green)', fontWeight: 500 }}>
-                {(citation.similarity_score * 100).toFixed(1)}%
-              </dd>
-              {citation.rerank_score != null && <>
-                <dt style={{ color: 'var(--text-tertiary)' }}>Rerank</dt>
-                <dd style={{ fontFamily: 'var(--font-mono)', color: 'var(--blue)', fontWeight: 500 }}>
-                  {citation.rerank_score.toFixed(4)}
-                </dd>
-              </>}
-              <dt style={{ color: 'var(--text-tertiary)' }}>Source</dt>
-              <dd style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
-                {citation.metadata?.source || 'Unknown'}
-              </dd>
-            </dl>
-          </div>
-
-          <div style={{
-            flex: 1, overflow: 'auto', margin: '10px 10px 12px',
-            background: 'var(--surface-2)', border: '1px solid var(--border)',
-            borderRadius: 'var(--r-md)', padding: '10px 12px',
-            fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)',
-            lineHeight: 1.65, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          }}>
-            {citation.text}
-          </div>
-        </motion.aside>
-      )}
-    </AnimatePresence>
-  );
-}
-
-/* ─── Message ────────────────────────────────────────────────────── */
-function Message({ msg, idx, onCite }) {
-  const isUser = msg.role === 'user';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        display: 'flex',
-        gap: 10,
-        justifyContent: isUser ? 'flex-end' : 'flex-start',
-        alignItems: 'flex-start',
-      }}
-    >
-      {/* Bot avatar */}
-      {!isUser && (
-        <div style={{
-          width: 24, height: 24, borderRadius: 'var(--r-md)', flexShrink: 0,
-          background: 'var(--surface-2)', border: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginTop: 2,
-        }}>
-          <Cpu size={12} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
-        </div>
-      )}
-
-      <div style={{ maxWidth: '73%', display: 'flex', flexDirection: 'column', gap: 5, alignItems: isUser ? 'flex-end' : 'flex-start', minWidth: 0 }}>
-
-        {/* User: fusion tag */}
-        {isUser && msg.multiQuery && (
-          <span className="chip chip-active" style={{ fontSize: 10 }}>
-            <GitMerge size={9} strokeWidth={1.5} /> fusion
-          </span>
-        )}
-
-        {/* Bubble */}
-        <div className={isUser ? 'msg-user' : 'msg-bot'}>
-          {msg.streaming && !msg.content ? (
-            <span style={{ display: 'flex', gap: 5, alignItems: 'center', height: 20 }}>
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-              <span className="typing-dot" />
-            </span>
-          ) : (
-            <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {msg.content}
-            </div>
-          )}
-
-          {/* Citation chips */}
-          {msg.citations && msg.citations.length > 0 && (
-            <div style={{
-              marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)',
-              display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center',
-            }}>
-              <BookOpen size={10} strokeWidth={1.5} style={{ color: 'var(--text-tertiary)' }} />
-              {msg.citations.map((c, i) => (
-                <button
-                  key={i}
-                  onClick={() => onCite(c)}
-                  className="chip chip-interactive"
-                  style={{ background: 'none' }}
-                >
-                  [{i + 1}]
-                  <span style={{ color: 'var(--text-tertiary)' }}> {(c.similarity_score * 100).toFixed(0)}%</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Bot: meta row */}
-        {!isUser && !msg.streaming && msg.latency != null && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            {msg.multiQuery && (
-              <span className="chip chip-active"><GitMerge size={9} strokeWidth={1.5} /> rrf</span>
-            )}
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Clock size={9} strokeWidth={1.5} /> {(msg.latency / 1000).toFixed(2)}s
-            </span>
-            {msg.evalStatus === 'evaluating' && (
-              <span className="chip chip-amber">
-                <Loader2 size={9} strokeWidth={1.5} style={{ animation: 'spin 1s linear infinite' }} /> eval
-              </span>
-            )}
-            {msg.evalStatus === 'done' && (
-              <span className="chip chip-green"><CheckCircle size={9} strokeWidth={1.5} /> evaluated</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* User avatar */}
-      {isUser && (
-        <div style={{
-          width: 24, height: 24, borderRadius: 'var(--r-md)', flexShrink: 0,
-          background: 'var(--surface-3)', border: '1px solid var(--border-hi)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginTop: 2,
-        }}>
-          <User size={12} strokeWidth={1.5} style={{ color: 'var(--text-secondary)' }} />
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
-/* ─── Empty state ────────────────────────────────────────────────── */
-function EmptyState({ collection }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      style={{ margin: 'auto', textAlign: 'center', padding: '0 24px' }}
-    >
-      <div style={{
-        width: 40, height: 40, borderRadius: 'var(--r-xl)',
-        border: '1px solid var(--border)',
-        background: 'var(--surface-2)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        margin: '0 auto 14px',
-      }}>
-        <Cpu size={18} strokeWidth={1.25} style={{ color: 'var(--text-tertiary)' }} />
-      </div>
-      <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 4, letterSpacing: '-0.01em' }}>
-        Ask anything
-      </p>
-      <p style={{ fontSize: 12.5, color: 'var(--text-tertiary)', lineHeight: 1.55 }}>
-        Querying{' '}
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)', background: 'var(--surface-3)', padding: '1px 5px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)' }}>
-          {collection}
-        </code>
-        {' '}with hybrid search, cross-encoder rerank, and multi-query fusion.
-      </p>
-    </motion.div>
-  );
-}
-
-/* ─── ChatWindow ─────────────────────────────────────────────────── */
-function ChatWindow({ session, update, collection }) {
-  const [input, setInput]       = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [citation, setCitation] = useState(null);
-  const [fusion, setFusion]     = useState(false);
-  const textareaRef = useRef(null);
-  const bottomRef   = useRef(null);
-  const messages    = session?.messages || [];
-
-  // Auto-scroll on new content
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, messages[messages.length - 1]?.content?.length]);
+    try {
+      localStorage.setItem('ragapp_swiss_sessions', JSON.stringify(sessions));
+    } catch (e) {
+      console.error('Failed to save chat sessions', e);
+    }
+  }, [sessions]);
 
-  const patch = useCallback(fn => {
-    update(session.id, s => ({ ...s, messages: fn(s.messages) }));
-  }, [session?.id, update]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeSession?.messages, isStreaming]);
 
-  const autoResize = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 168) + 'px';
+  const handleCreateSession = () => {
+    const newSession = {
+      id: `session_${Date.now()}`,
+      title: `Session #${String(sessions.length + 1).padStart(2, '0')}`,
+      messages: [],
+      createdAt: new Date().toISOString(),
+    };
+    setSessions([newSession, ...sessions]);
+    setActiveSessionId(newSession.id);
   };
 
-  const send = async () => {
-    if (!input.trim() || loading || !session) return;
-    const query = input.trim();
-    setInput('');
-    if (textareaRef.current) textareaRef.current.style.height = '40px';
-
-    // Auto-title on first user message
-    if (!messages.some(m => m.role === 'user')) {
-      update(session.id, s => ({ ...s, title: trunc(query, 38) }));
+  const handleDeleteSession = (id, e) => {
+    e.stopPropagation();
+    if (sessions.length <= 1) {
+      setSessions([{ id: 'default', title: 'Session #01', messages: [], createdAt: new Date().toISOString() }]);
+      setActiveSessionId('default');
+      return;
     }
+    const filtered = sessions.filter((s) => s.id !== id);
+    setSessions(filtered);
+    if (activeSessionId === id) {
+      setActiveSessionId(filtered[0].id);
+    }
+  };
 
-    const userMsg = { role: 'user', content: query, multiQuery: fusion };
-    const botMsg  = { role: 'assistant', content: '', citations: [], streaming: true, evalStatus: null, multiQuery: fusion };
-    const botIdx  = messages.length + 1;
+  const handleSend = async () => {
+    if (!inputQuery.trim() || isStreaming) return;
 
-    patch(p => [...p, userMsg, botMsg]);
-    setLoading(true);
+    const userMessage = {
+      id: `msg_${Date.now()}`,
+      role: 'user',
+      content: inputQuery.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const assistantPlaceholder = {
+      id: `msg_asst_${Date.now()}`,
+      role: 'assistant',
+      content: '',
+      citations: [],
+      latencyMs: null,
+      traceId: null,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    const updatedMessages = [...activeSession.messages, userMessage, assistantPlaceholder];
+
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId
+          ? {
+              ...s,
+              title: s.messages.length === 0 ? userMessage.content.slice(0, 32) : s.title,
+              messages: updatedMessages,
+            }
+          : s
+      )
+    );
+
+    const queryToSend = inputQuery.trim();
+    setInputQuery('');
+    setIsStreaming(true);
 
     try {
       await api.streamQueryRAG(
-        collection, query,
-        cits  => patch(p => p.map((m, i) => i === botIdx ? { ...m, citations: cits } : m)),
-        token => patch(p => p.map((m, i) => i === botIdx ? { ...m, content: m.content + token } : m)),
-        done  => {
-          patch(p => p.map((m, i) => i === botIdx
-            ? { ...m, streaming: false, latency: done.latency_ms, evalStatus: 'evaluating' }
-            : m
-          ));
-          setTimeout(() => {
-            patch(p => p.map((m, i) => i === botIdx ? { ...m, evalStatus: 'done' } : m));
-          }, 3500);
+        activeCollection || 'system-design',
+        queryToSend,
+        (citations) => {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === activeSessionId
+                ? {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === assistantPlaceholder.id ? { ...m, citations } : m
+                    ),
+                  }
+                : s
+            )
+          );
         },
-        5, null, fusion, true
+        (token) => {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === activeSessionId
+                ? {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === assistantPlaceholder.id ? { ...m, content: m.content + token } : m
+                    ),
+                  }
+                : s
+            )
+          );
+        },
+        (donePayload) => {
+          setSessions((prev) =>
+            prev.map((s) =>
+              s.id === activeSessionId
+                ? {
+                    ...s,
+                    messages: s.messages.map((m) =>
+                      m.id === assistantPlaceholder.id
+                        ? {
+                            ...m,
+                            latencyMs: donePayload.latency_ms,
+                            traceId: donePayload.trace_id,
+                          }
+                        : m
+                    ),
+                  }
+                : s
+            )
+          );
+          setIsStreaming(false);
+        },
+        topK,
+        null,
+        enableMultiQuery,
+        true
       );
     } catch (err) {
-      patch(p => p.map((m, i) => i === botIdx ? { ...m, content: `Error: ${err.message}`, streaming: false } : m));
-    } finally {
-      setLoading(false);
+      console.error('Streaming error:', err);
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === activeSessionId
+            ? {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === assistantPlaceholder.id
+                    ? { ...m, content: `Error: ${err.message || 'Execution failed.'}` }
+                    : m
+                ),
+              }
+            : s
+        )
+      );
+      setIsStreaming(false);
     }
   };
 
-  if (!session) {
-    return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-0)' }}>
-        <p style={{ color: 'var(--text-tertiary)', fontSize: 13 }}>Select a conversation or create one</p>
-      </div>
-    );
-  }
+  const renderContentWithCitations = (content, citations = []) => {
+    if (!content) return null;
+    const parts = content.split(/(\[\d+\])/g);
+
+    return parts.map((part, index) => {
+      const match = part.match(/\[(\d+)\]/);
+      if (match) {
+        const citationNum = parseInt(match[1], 10);
+        const citationData = citations[citationNum - 1];
+
+        return (
+          <button
+            key={index}
+            className="citation-pill"
+            onClick={() => setSelectedCitation(citationData || { chunk_index: citationNum, text: 'No expanded text.' })}
+          >
+            [{String(citationNum).padStart(2, '0')}]
+          </button>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
 
   return (
-    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', background: 'var(--surface-0)' }}>
-      {/* Thread area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-
-        {/* Thread header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, height: 44,
-          padding: '0 16px', borderBottom: '1px solid var(--border)',
-          background: 'var(--surface-0)', flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
-            {session.title}
-          </span>
-          <span className="chip">{collection}</span>
+    <div style={{ display: 'flex', height: 'calc(100vh - 56px)', background: 'var(--bg-canvas)' }}>
+      {/* ----------------------------------------------------------------------
+          LEFT SESSION DIRECTORY
+          ---------------------------------------------------------------------- */}
+      <aside style={{ width: 280, borderRight: '1px solid var(--hairline)', background: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--hairline)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span className="index-num">SESSION LOG</span>
+            <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>RETRIEVAL AUDIT</div>
+          </div>
+          <button onClick={handleCreateSession} className="btn" style={{ padding: '6px 10px', fontSize: 11 }}>
+            <Plus size={13} />
+            <span>New</span>
+          </button>
         </div>
 
-        {/* Messages */}
-        <div style={{
-          flex: 1, overflowY: 'auto', padding: '20px 20px 8px',
-          display: 'flex', flexDirection: 'column', gap: 16,
-        }}>
-          {messages.length === 0
-            ? <EmptyState collection={collection} />
-            : messages.map((m, i) => <Message key={i} msg={m} idx={i} onCite={setCitation} />)
-          }
-          <div ref={bottomRef} />
-        </div>
-
-        {/* Compose area */}
-        <div style={{ padding: '10px 16px 14px', borderTop: '1px solid var(--border)', background: 'var(--surface-0)', flexShrink: 0 }}>
-
-          {/* Fusion toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <button
-              id="multi-query-toggle"
-              className="btn"
-              onClick={() => setFusion(v => !v)}
-              style={fusion ? {
-                borderColor: 'rgba(77,157,224,0.3)',
-                color: 'var(--blue)',
-                background: 'rgba(77,157,224,0.05)',
-              } : {}}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {sessions.map((s, idx) => (
+            <div
+              key={s.id}
+              onClick={() => setActiveSessionId(s.id)}
+              style={{
+                padding: '14px 20px',
+                borderBottom: '1px solid var(--hairline)',
+                background: s.id === activeSessionId ? 'var(--bg-subtle)' : '#FFFFFF',
+                cursor: 'pointer',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
             >
-              <GitMerge size={11} strokeWidth={1.75} />
-              Multi-Query Fusion
-              {fusion && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--blue)', display: 'inline-block' }}
-                />
-              )}
-            </button>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>
-              {fusion ? '4× retrieval + RRF + LitM reorder' : 'standard retrieval + rerank + LitM reorder'}
-            </span>
+              <div style={{ minWidth: 0, paddingRight: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <span className="index-num">#{String(sessions.length - idx).padStart(2, '0')}</span>
+                  <span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: 'var(--ink-tertiary)' }}>
+                    {new Date(s.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.title}
+                </div>
+              </div>
+              <button
+                onClick={(e) => handleDeleteSession(s.id, e)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--ink-tertiary)', cursor: 'pointer' }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Query Controls Footer */}
+        <div style={{ padding: 16, borderTop: '1px solid var(--hairline)', background: '#FFFFFF' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <SlidersHorizontal size={13} style={{ color: 'var(--swiss-red)' }} />
+            <span className="meta-label">RETRIEVAL PARAMS</span>
           </div>
 
-          {/* Input */}
-          <div className="input-wrap">
-            <textarea
-              ref={textareaRef}
-              className="input"
-              value={input}
-              onChange={e => { setInput(e.target.value); autoResize(); }}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder="Ask a question…"
-              rows={1}
-              style={{ minHeight: 36, maxHeight: 168, overflow: 'hidden', paddingTop: 6, paddingBottom: 4 }}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={enableMultiQuery}
+              onChange={(e) => setEnableMultiQuery(e.target.checked)}
             />
-            <motion.button
-              className="btn-primary"
-              onClick={send}
-              disabled={!input.trim() || loading}
-              whileTap={{ scale: 0.94 }}
-              style={{ borderRadius: 'var(--r-md)', padding: '6px 8px', flexShrink: 0, alignSelf: 'flex-end', marginBottom: 0, minWidth: 0, border: 'none', cursor: 'pointer' }}
-            >
-              {loading
-                ? <Loader2 size={13} strokeWidth={2} style={{ animation: 'spin 1s linear infinite' }} />
-                : <ArrowUp size={13} strokeWidth={2.5} />
-              }
-            </motion.button>
-          </div>
+            <span>Multi-Query Expansion</span>
+          </label>
 
-          <p style={{ marginTop: 5, fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--text-tertiary)', letterSpacing: '0.02em' }}>
-            ↵ send · ⇧↵ newline
-          </p>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={enableReranker}
+              onChange={(e) => setEnableReranker(e.target.checked)}
+            />
+            <span>Cross-Encoder Reranker</span>
+          </label>
         </div>
-      </div>
+      </aside>
 
-      {/* Citation panel */}
-      <CitationPanel citation={citation} onClose={() => setCitation(null)} />
-    </div>
-  );
-}
+      {/* ----------------------------------------------------------------------
+          CENTER CONVERSATIONAL STAGE
+          ---------------------------------------------------------------------- */}
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#FAFAFA' }}>
+        {/* Stage Header */}
+        <div style={{ height: 48, borderBottom: '1px solid var(--hairline)', background: '#FFFFFF', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="index-num">ACTIVE STAGE</span>
+            <span className="meta-label">CORPUS: {activeCollection || 'SYSTEM-DESIGN'}</span>
+          </div>
+          <span className="meta-label">TOP-K: {topK} // HYBRID RRF</span>
+        </div>
 
-/* ─── ChatLayout (root) ──────────────────────────────────────────── */
-export function ChatLayout({ activeCollection }) {
-  const { sessions, active, activeId, setActiveId, create, remove, update } =
-    useSessions(activeCollection);
+        {/* Message Thread */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 32 }}>
+          <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {activeSession.messages.length === 0 ? (
+              <div style={{ padding: 48, border: '1px solid var(--hairline-heavy)', background: '#FFFFFF', textAlign: 'left' }}>
+                <span className="index-num">READY // 01</span>
+                <h2 style={{ marginTop: 8, marginBottom: 12 }}>GROUNDED RETRIEVAL STAGE</h2>
+                <p style={{ color: 'var(--ink-secondary)', fontSize: 14, lineHeight: 1.6, maxWidth: 600 }}>
+                  Enter a technical prompt to execute dense vector search, lexical BM25 matching, reciprocal rank fusion, and verified citation synthesis.
+                </p>
+              </div>
+            ) : (
+              activeSession.messages.map((msg) => (
+                <article
+                  key={msg.id}
+                  style={{
+                    border: '1px solid var(--hairline)',
+                    background: msg.role === 'user' ? '#FFFFFF' : '#FFFFFF',
+                    padding: 24,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottom: '1px solid var(--hairline)', paddingBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span className={msg.role === 'user' ? 'index-num' : 'swiss-chip swiss-chip-red'}>
+                        {msg.role === 'user' ? 'USER QUERY' : 'GROUNDED SYNTHESIS'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-tertiary)' }}>
+                      {msg.latencyMs && <span>LATENCY: {(msg.latencyMs / 1000).toFixed(2)}s</span>}
+                      <span>{msg.timestamp}</span>
+                    </div>
+                  </div>
 
-  useEffect(() => {
-    if (sessions.length === 0) create();
-  }, []); // eslint-disable-line
+                  <div style={{ fontSize: 14.5, lineHeight: 1.7, color: 'var(--ink-primary)', whiteSpace: 'pre-wrap' }}>
+                    {msg.role === 'assistant'
+                      ? renderContentWithCitations(msg.content, msg.citations)
+                      : msg.content}
+                  </div>
 
-  useEffect(() => {
-    if (!activeId && sessions.length > 0) setActiveId(sessions[0].id);
-  }, [activeId, sessions, setActiveId]);
+                  {msg.citations && msg.citations.length > 0 && (
+                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--hairline)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <FileText size={12} style={{ color: 'var(--swiss-red)' }} />
+                        <span className="meta-label">RETRIEVED CITATIONS ({msg.citations.length})</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {msg.citations.map((c, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setSelectedCitation(c)}
+                            className="swiss-chip"
+                            style={{ cursor: 'pointer', background: '#FAFAFA' }}
+                          >
+                            <span style={{ color: 'var(--swiss-red)', fontWeight: 700 }}>[{String(i + 1).padStart(2, '0')}]</span>
+                            <span>Score: {(c.similarity_score * 100).toFixed(0)}%</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </article>
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
 
-  return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 52px)' }}>
-      <Sidebar
-        sessions={sessions}
-        activeId={activeId}
-        setActiveId={setActiveId}
-        create={create}
-        remove={remove}
-      />
-      <ChatWindow
-        session={active}
-        update={update}
-        collection={activeCollection}
-      />
+        {/* Input Dock */}
+        <div style={{ padding: '16px 24px', background: '#FFFFFF', borderTop: '1px solid var(--hairline)' }}>
+          <div style={{ maxWidth: 840, margin: '0 auto' }}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              style={{ display: 'flex', gap: 12 }}
+            >
+              <input
+                type="text"
+                value={inputQuery}
+                onChange={(e) => setInputQuery(e.target.value)}
+                placeholder="Ask a technical question against indexed documents..."
+                className="input-field"
+                disabled={isStreaming}
+              />
+              <button
+                type="submit"
+                disabled={!inputQuery.trim() || isStreaming}
+                className="btn btn-swiss"
+                style={{ padding: '0 24px', flexShrink: 0 }}
+              >
+                {isStreaming ? (
+                  <span>Synthesizing...</span>
+                ) : (
+                  <>
+                    <span>Submit</span>
+                    <Send size={13} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      </main>
+
+      {/* ----------------------------------------------------------------------
+          RIGHT CITATION INSPECTOR DRAWER
+          ---------------------------------------------------------------------- */}
+      <AnimatePresence>
+        {selectedCitation && (
+          <motion.aside
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 360, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            style={{
+              borderLeft: '1px solid var(--hairline)',
+              background: '#FFFFFF',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--hairline)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <span className="index-num">CITATION PROVENANCE</span>
+                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>CHUNK INSPECTOR</div>
+              </div>
+              <button
+                onClick={() => setSelectedCitation(null)}
+                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-secondary)' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ padding: 20, flex: 1, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                <span className="swiss-chip swiss-chip-red">
+                  Sim: {selectedCitation.similarity_score ? `${(selectedCitation.similarity_score * 100).toFixed(1)}%` : 'N/A'}
+                </span>
+                {selectedCitation.rerank_score && (
+                  <span className="swiss-chip swiss-chip-blue">
+                    Rerank: {selectedCitation.rerank_score.toFixed(3)}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <span className="meta-label">SOURCE PASSAGE TEXT</span>
+                <div
+                  style={{
+                    background: '#F9FAFB',
+                    border: '1px solid var(--hairline)',
+                    padding: 16,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: 'var(--ink-primary)',
+                    marginTop: 6,
+                  }}
+                >
+                  {selectedCitation.text}
+                </div>
+              </div>
+
+              {selectedCitation.parent_text && (
+                <div>
+                  <span className="meta-label">PARENT CONTEXT BLOCK</span>
+                  <div
+                    style={{
+                      background: '#F9FAFB',
+                      border: '1px solid var(--hairline)',
+                      padding: 16,
+                      fontSize: 12.5,
+                      lineHeight: 1.6,
+                      color: 'var(--ink-secondary)',
+                      marginTop: 6,
+                    }}
+                  >
+                    {selectedCitation.parent_text}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

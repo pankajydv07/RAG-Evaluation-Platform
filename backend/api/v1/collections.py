@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.core.database import get_db_session
 from backend.core.exceptions import DuplicateResourceError, ResourceNotFoundError, to_http_exception
 from backend.repositories.collection_repo import CollectionRepository
+from backend.repositories.document_repo import DocumentRepository
 from backend.schemas.collection import CollectionCreate, CollectionResponse, CollectionListResponse
+from backend.schemas.document import DocumentResponse
 
 router = APIRouter(prefix="/collections", tags=["Collections"])
 
@@ -68,3 +70,20 @@ async def delete_collection(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Collection not found.",
         )
+
+
+@router.get("/{collection_name}/documents", response_model=list[DocumentResponse])
+async def list_collection_documents(
+    collection_name: str,
+    session: AsyncSession = Depends(get_db_session),
+):
+    col_repo = CollectionRepository(session)
+    col = await col_repo.get_by_name(collection_name)
+    if not col:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Collection '{collection_name}' not found.",
+        )
+    doc_repo = DocumentRepository(session)
+    docs = await doc_repo.list_by_collection(col.id)
+    return [DocumentResponse.model_validate(d) for d in docs]

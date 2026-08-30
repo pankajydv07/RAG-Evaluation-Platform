@@ -50,6 +50,8 @@ async def ingest_web_document(
             chunking_strategy=payload.chunking_strategy,
             chunk_size=payload.chunk_size,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except DomainException as exc:
         raise to_http_exception(exc)
 

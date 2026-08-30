@@ -56,3 +56,15 @@ class DocumentRepository:
         stmt = delete(Document).where(Document.id == document_id)
         result = await self.session.execute(stmt)
         return result.rowcount > 0
+
+    async def list_by_collection(
+        self, collection_id: uuid.UUID, limit: int = 200
+    ) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(Document.collection_id == collection_id)
+            .order_by(Document.loaded_at.desc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

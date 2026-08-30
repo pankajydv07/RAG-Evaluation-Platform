@@ -4,6 +4,24 @@
 
 const API_BASE = '/api/v1';
 
+/**
+ * Safely parse error response — handles both JSON (FastAPI detail) and
+ * plain-text / HTML bodies (e.g. 500 Internal Server Error from proxy/nginx).
+ */
+async function extractError(res, fallback = 'Request failed') {
+  try {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const body = await res.json();
+      return body.detail || body.message || fallback;
+    }
+    const text = await res.text();
+    return text.slice(0, 200) || `HTTP ${res.status}`;
+  } catch {
+    return `HTTP ${res.status} ${res.statusText || fallback}`;
+  }
+}
+
 export const api = {
   // Health
   async getHealth() {
@@ -14,7 +32,7 @@ export const api = {
   // Collections
   async getCollections() {
     const res = await fetch(`${API_BASE}/collections`);
-    if (!res.ok) throw new Error('Failed to load collections');
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to load collections'));
     return res.json();
   },
 
@@ -24,15 +42,13 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, description }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to create collection');
-    }
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to create collection'));
     return res.json();
   },
 
   // Documents
-  async ingestText(collectionName, text, sourceUri = 'web_text_input', strategy = 'sentence') {
+  // collectionName, sourceUri (title), text, strategy — matches IngestionTab call signature
+  async ingestText(collectionName, sourceUri = 'web_text_input', text, strategy = 'sentence') {
     const res = await fetch(`${API_BASE}/documents/text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -43,10 +59,7 @@ export const api = {
         chunking_strategy: strategy,
       }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to ingest text');
-    }
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to ingest text'));
     return res.json();
   },
 
@@ -60,10 +73,20 @@ export const api = {
         chunking_strategy: strategy,
       }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to ingest URL');
-    }
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to ingest URL'));
+    return res.json();
+  },
+
+  // Alias used by IngestionTab
+  async ingestUrl(collectionName, url, strategy = 'sentence') {
+    return this.ingestWeb(collectionName, url, strategy);
+  },
+
+  // Documents list for a collection
+  async getDocuments(collectionName) {
+    const res = await fetch(`${API_BASE}/collections/${encodeURIComponent(collectionName)}/documents`);
+    if (res.status === 404) return []; // collection doesn't exist yet
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to fetch documents'));
     return res.json();
   },
 
@@ -77,15 +100,12 @@ export const api = {
       method: 'POST',
       body: formData,
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Failed to ingest PDF');
-    }
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to ingest PDF'));
     return res.json();
   },
 
   // Query & RAG
-  async queryRAG(collectionName, query, topK = 5, model = null, provider = null) {
+  async queryRAG(collectionName, query, topK = 5, model = null) {
     const res = await fetch(`${API_BASE}/query`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -94,17 +114,23 @@ export const api = {
         query,
         top_k: topK,
         model,
-        provider,
       }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Query execution failed');
-    }
+    if (!res.ok) throw new Error(await extractError(res, 'Query execution failed'));
     return res.json();
   },
 
-  async streamQueryRAG(collectionName, query, onCitations, onToken, onDone, topK = 5, model = null, enableMultiQuery = false, enableLostInMiddleReorder = true) {
+  async streamQueryRAG(
+    collectionName,
+    query,
+    onCitations,
+    onToken,
+    onDone,
+    topK = 5,
+    model = null,
+    enableMultiQuery = false,
+    enableLostInMiddleReorder = true
+  ) {
     const res = await fetch(`${API_BASE}/query/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,10 +143,7 @@ export const api = {
         enable_lost_in_middle_reorder: enableLostInMiddleReorder,
       }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'Streaming query execution failed');
-    }
+    if (!res.ok) throw new Error(await extractError(res, 'Streaming query execution failed'));
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder('utf-8');
@@ -154,7 +177,7 @@ export const api = {
             if (eventType === 'token' && onToken) onToken(data.token);
             if (eventType === 'done' && onDone) onDone(data);
           } catch (e) {
-            console.error('Error parsing SSE data:', e);
+            console.error('Error parsing SSE data:', e, 'Raw:', dataStr);
           }
         }
       }
@@ -164,13 +187,13 @@ export const api = {
   // Evaluation & Traces
   async getEvalSummary() {
     const res = await fetch(`${API_BASE}/eval/summary`);
-    if (!res.ok) throw new Error('Failed to fetch eval summary');
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to fetch eval summary'));
     return res.json();
   },
 
   async getTraces() {
     const res = await fetch(`${API_BASE}/eval/traces`);
-    if (!res.ok) throw new Error('Failed to fetch traces');
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to fetch traces'));
     return res.json();
   },
 
@@ -178,7 +201,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/eval/evaluate-pending?limit=${limit}`, {
       method: 'POST',
     });
-    if (!res.ok) throw new Error('Failed to run pending evaluations');
+    if (!res.ok) throw new Error(await extractError(res, 'Failed to run pending evaluations'));
     return res.json();
   },
 
@@ -189,11 +212,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || 'A/B Test execution failed');
-    }
+    if (!res.ok) throw new Error(await extractError(res, 'A/B Test execution failed'));
     return res.json();
   },
-
 };

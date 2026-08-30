@@ -18,10 +18,12 @@ export function ABTestTab({ activeCollection }) {
       const res = await api.runABTest({
         collection_name: activeCollection || 'system-design',
         query: query.trim(),
+        provider_a: 'groq',
         model_a: modelA,
+        provider_b: 'groq',
         model_b: modelB,
+        judge_provider: 'groq',
         top_k: 5,
-        enable_reranker: true,
       });
       setResult(res);
     } catch (err) {
@@ -114,10 +116,11 @@ export function ABTestTab({ activeCollection }) {
               <div>
                 <span className="index-num">JUDGE ARBITRATION RESULT</span>
                 <h3 style={{ marginTop: 6, fontSize: 18 }}>
-                  WINNER: <span style={{ color: 'var(--swiss-red)' }}>MODEL {result.winner.toUpperCase()}</span> ({result.winner === 'A' ? result.model_a : result.model_b})
+                  WINNER: <span style={{ color: 'var(--swiss-red)' }}>MODEL {result.judge_evaluation.winner.toUpperCase()}</span>
+                  {' '}({result.judge_evaluation.winner === 'A' ? result.model_a_result.model : result.model_b_result.model})
                 </h3>
                 <p style={{ color: 'var(--ink-secondary)', marginTop: 4, fontSize: 13.5 }}>
-                  {result.critique}
+                  {result.judge_evaluation.critique}
                 </p>
               </div>
               <Trophy size={36} style={{ color: 'var(--swiss-red)', flexShrink: 0, marginLeft: 24 }} />
@@ -131,12 +134,12 @@ export function ABTestTab({ activeCollection }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--hairline)', paddingBottom: 12 }}>
                     <div>
                       <span className="index-num">CANDIDATE A</span>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 2 }}>{result.model_a}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 2 }}>{result.model_a_result.model}</div>
                     </div>
-                    <span className="swiss-chip">{(result.latency_a_ms / 1000).toFixed(2)}s</span>
+                    <span className="swiss-chip">{(result.model_a_result.latency_ms / 1000).toFixed(2)}s</span>
                   </div>
                   <div style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink-primary)', whiteSpace: 'pre-wrap' }}>
-                    {result.response_a}
+                    {result.model_a_result.answer}
                   </div>
                 </div>
               </div>
@@ -147,12 +150,12 @@ export function ABTestTab({ activeCollection }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--hairline)', paddingBottom: 12 }}>
                     <div>
                       <span className="index-num">CANDIDATE B</span>
-                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 2 }}>{result.model_b}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: 2 }}>{result.model_b_result.model}</div>
                     </div>
-                    <span className="swiss-chip">{(result.latency_b_ms / 1000).toFixed(2)}s</span>
+                    <span className="swiss-chip">{(result.model_b_result.latency_ms / 1000).toFixed(2)}s</span>
                   </div>
                   <div style={{ fontSize: 13.5, lineHeight: 1.65, color: 'var(--ink-primary)', whiteSpace: 'pre-wrap' }}>
-                    {result.response_b}
+                    {result.model_b_result.answer}
                   </div>
                 </div>
               </div>

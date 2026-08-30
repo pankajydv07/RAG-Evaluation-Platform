@@ -54,19 +54,39 @@ class DocumentLoader:
 
     @classmethod
     async def load_web(cls, url: str) -> LoadedDocument:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            html = response.text
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=20.0, follow_redirects=True, headers=headers) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                html = response.text
+        except httpx.HTTPStatusError as exc:
+            raise ValueError(
+                f"Failed to fetch URL ({exc.response.status_code}): {url}. "
+                f"The site may be blocking automated access."
+            ) from exc
+        except httpx.RequestError as exc:
+            raise ValueError(f"Network error fetching URL: {url} — {exc}") from exc
 
         soup = BeautifulSoup(html, "html.parser")
-        # Remove script and style tags
-        for tag in soup(["script", "style", "nav", "footer", "header"]):
+        # Remove noise tags
+        for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
 
         text = soup.get_text(separator="\n")
         # Collapse multiple newlines
         cleaned = "\n".join([line.strip() for line in text.splitlines() if line.strip()])
+
+        if not cleaned:
+            raise ValueError(f"No readable text content extracted from: {url}")
 
         return LoadedDocument(
             source_uri=url,

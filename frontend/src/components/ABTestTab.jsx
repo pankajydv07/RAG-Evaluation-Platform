@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Sparkles, Trophy, CheckCircle2, Clock, Cpu, Scale } from 'lucide-react';
 import { api } from '../api/client';
+import { SwissProgressBar, SwissSpinner, SwissSkeleton } from './SwissLoader';
 
 export function ABTestTab({ activeCollection }) {
   const [query, setQuery] = useState('What is consistent hashing and how does it prevent hot spots?');
@@ -34,7 +35,8 @@ export function ABTestTab({ activeCollection }) {
   };
 
   return (
-    <div style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+    <div className="swiss-page-enter" style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+      {loading && <SwissProgressBar />}
       <div className="swiss-container">
         {/* Header */}
         <div style={{ borderBottom: '1px solid var(--hairline-heavy)', paddingBottom: 24, marginBottom: 32 }}>
@@ -59,6 +61,7 @@ export function ABTestTab({ activeCollection }) {
                 onChange={(e) => setQuery(e.target.value)}
                 className="input-field"
                 style={{ marginTop: 6 }}
+                disabled={loading}
               />
             </div>
 
@@ -71,6 +74,7 @@ export function ABTestTab({ activeCollection }) {
                   onChange={(e) => setModelA(e.target.value)}
                   className="input-field"
                   style={{ marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: 12.5 }}
+                  disabled={loading}
                 />
               </div>
               <div style={{ gridColumn: 'span 6' }}>
@@ -81,13 +85,17 @@ export function ABTestTab({ activeCollection }) {
                   onChange={(e) => setModelB(e.target.value)}
                   className="input-field"
                   style={{ marginTop: 6, fontFamily: 'var(--font-mono)', fontSize: 12.5 }}
+                  disabled={loading}
                 />
               </div>
             </div>
 
             <button type="submit" disabled={loading || !query.trim()} className="btn btn-swiss" style={{ alignSelf: 'flex-start' }}>
               {loading ? (
-                <span>Arbitrating Models...</span>
+                <>
+                  <SwissSpinner size="sm" />
+                  <span>Arbitrating Models...</span>
+                </>
               ) : (
                 <>
                   <Play size={13} fill="currentColor" />
@@ -98,11 +106,25 @@ export function ABTestTab({ activeCollection }) {
           </form>
         </div>
 
+        {/* Loading Skeleton */}
+        {loading && (
+          <div className="swiss-fade-in" style={{ marginBottom: 32 }}>
+            <div className="swiss-card" style={{ marginBottom: 20, padding: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <SwissSpinner size="sm" />
+                <span className="meta-label">GENERATING DUAL CANDIDATE RESPONSES & EXECUTING JUDGE PROMPT...</span>
+              </div>
+              <SwissSkeleton lines={3} />
+            </div>
+          </div>
+        )}
+
         {/* Results Matrix */}
-        {result && (
-          <div>
+        {!loading && result && (
+          <div className="swiss-stagger">
             {/* Winner Callout */}
             <div
+              className="swiss-card"
               style={{
                 border: '1px solid var(--hairline-heavy)',
                 background: '#FFFFFF',

@@ -12,6 +12,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { SwissProgressBar, SwissSkeleton, SwissSpinner } from './SwissLoader';
 
 export function TracesTab() {
   const [summary, setSummary] = useState(null);
@@ -55,7 +56,8 @@ export function TracesTab() {
   const unevaluatedCount = traces.filter((t) => !t.eval_runs || t.eval_runs.length === 0).length;
 
   return (
-    <div style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+    <div className="swiss-page-enter" style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+      {(loading || evaluatingPending) && <SwissProgressBar />}
       <div className="swiss-container">
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--hairline-heavy)', paddingBottom: 24, marginBottom: 32 }}>
@@ -77,7 +79,7 @@ export function TracesTab() {
                 disabled={evaluatingPending || loading}
                 className="btn btn-swiss"
               >
-                <Sparkles size={13} />
+                {evaluatingPending ? <SwissSpinner size="sm" /> : <Sparkles size={13} />}
                 <span>{evaluatingPending ? 'Judging Traces...' : `Evaluate ${unevaluatedCount} Pending`}</span>
               </button>
             )}
@@ -90,6 +92,7 @@ export function TracesTab() {
 
         {message && (
           <div
+            className="swiss-fade-in"
             style={{
               padding: '12px 16px',
               border: '1px solid var(--signal-green)',
@@ -109,8 +112,12 @@ export function TracesTab() {
         )}
 
         {/* Metric Strip */}
-        {summary && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--hairline)', border: '1px solid var(--hairline)', marginBottom: 32 }}>
+        {loading && !summary ? (
+          <div className="swiss-card" style={{ marginBottom: 32, padding: 24 }}>
+            <SwissSkeleton lines={2} />
+          </div>
+        ) : summary ? (
+          <div className="swiss-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--hairline)', border: '1px solid var(--hairline)', marginBottom: 32 }}>
             <div className="metric-tile">
               <div className="metric-tile-label">
                 <span>01 // FAITHFULNESS</span>
@@ -163,7 +170,7 @@ export function TracesTab() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Traces Directory Table */}
         <div style={{ border: '1px solid var(--hairline)', background: '#FFFFFF' }}>
@@ -172,7 +179,11 @@ export function TracesTab() {
             <span className="meta-label">CRITIQUE & METRIC BREAKDOWN</span>
           </div>
 
-          {traces.length === 0 ? (
+          {loading && traces.length === 0 ? (
+            <div style={{ padding: 24 }}>
+              <SwissSkeleton lines={4} />
+            </div>
+          ) : traces.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center' }}>
               <BarChart3 size={24} style={{ color: 'var(--ink-tertiary)', marginBottom: 8 }} />
               <div style={{ fontSize: 13, fontWeight: 700 }}>No telemetry traces recorded</div>
@@ -186,7 +197,7 @@ export function TracesTab() {
               const evalRun = trace.eval_runs && trace.eval_runs[0];
 
               return (
-                <div key={trace.id} style={{ borderBottom: '1px solid var(--hairline)' }}>
+                <div key={trace.id} className="swiss-row-enter" style={{ borderBottom: '1px solid var(--hairline)', animationDelay: `${idx * 30}ms` }}>
                   <button
                     onClick={() => setExpandedTrace(isExpanded ? null : trace.id)}
                     style={{
@@ -199,6 +210,7 @@ export function TracesTab() {
                       alignItems: 'center',
                       cursor: 'pointer',
                       textAlign: 'left',
+                      transition: 'background 120ms ease',
                     }}
                   >
                     <div style={{ minWidth: 0, paddingRight: 16 }}>
@@ -225,12 +237,12 @@ export function TracesTab() {
                       ) : (
                         <span className="swiss-chip">PENDING JUDGE</span>
                       )}
-                      <ChevronDown size={15} style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms' }} />
+                      <ChevronDown size={15} style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 150ms ease' }} />
                     </div>
                   </button>
 
                   {isExpanded && (
-                    <div style={{ padding: 24, background: '#FAFAFA', borderTop: '1px solid var(--hairline)' }}>
+                    <div className="swiss-fade-in" style={{ padding: 24, background: '#FAFAFA', borderTop: '1px solid var(--hairline)' }}>
                       <div style={{ marginBottom: 20 }}>
                         <span className="meta-label">GENERATED ANSWER</span>
                         <div style={{ background: '#FFFFFF', border: '1px solid var(--hairline)', padding: 16, fontSize: 13, lineHeight: 1.65, marginTop: 6 }}>
@@ -258,7 +270,8 @@ export function TracesTab() {
                             This trace has not been evaluated by an LLM judge yet.
                           </span>
                           <button onClick={handleEvaluatePending} disabled={evaluatingPending} className="btn btn-swiss" style={{ padding: '6px 12px', fontSize: 11 }}>
-                            Run Judge Now
+                            {evaluatingPending ? <SwissSpinner size="sm" /> : null}
+                            <span>Run Judge Now</span>
                           </button>
                         </div>
                       )}

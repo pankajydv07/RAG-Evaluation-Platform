@@ -17,7 +17,7 @@ export function LandingPage({ onNavigate, activeCollection }) {
   const [activeCodeTab, setActiveCodeTab] = useState('curl');
 
   return (
-    <div style={{ background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+    <div className="swiss-page-enter" style={{ background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
       {/* ----------------------------------------------------------------------
           POSTER SPLIT HERO SECTION
           ---------------------------------------------------------------------- */}
@@ -66,12 +66,14 @@ export function LandingPage({ onNavigate, activeCollection }) {
             </div>
 
             {/* Right: Swiss Visual Art & Grid Poster */}
-            <div style={{ gridColumn: 'span 5', border: '1px solid var(--hairline-heavy)', background: '#FFFFFF', padding: 16 }}>
+            <div className="swiss-card" style={{ gridColumn: 'span 5', border: '1px solid var(--hairline-heavy)', background: '#FFFFFF', padding: 16 }}>
               <div style={{ width: '100%', overflow: 'hidden', border: '1px solid var(--hairline)' }}>
                 <img
                   src="/assets/swiss_hero.jpg"
                   alt="Swiss Typographic Grid Composition"
-                  style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
+                  style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover', transition: 'transform 400ms ease' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.02)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1.0)'; }}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--ink-secondary)' }}>
@@ -110,7 +112,7 @@ export function LandingPage({ onNavigate, activeCollection }) {
             <span className="meta-label">FOUR-STAGE REASONING TOPOLOGY</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--hairline)', border: '1px solid var(--hairline)' }}>
+          <div className="swiss-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--hairline)', border: '1px solid var(--hairline)' }}>
             <PillarCard
               index="01"
               title="Hierarchical Chunking"
@@ -146,7 +148,7 @@ export function LandingPage({ onNavigate, activeCollection }) {
         <div className="swiss-container">
           <div className="swiss-grid-12" style={{ alignItems: 'center' }}>
             {/* Visual Vector Topology Diagram */}
-            <div style={{ gridColumn: 'span 6', border: '1px solid var(--hairline-heavy)', padding: 16, background: '#FFFFFF' }}>
+            <div className="swiss-card" style={{ gridColumn: 'span 6', border: '1px solid var(--hairline-heavy)', padding: 16, background: '#FFFFFF' }}>
               <img
                 src="/assets/swiss_vector.jpg"
                 alt="Vector Embeddings and Knowledge Topology"
@@ -179,6 +181,7 @@ export function LandingPage({ onNavigate, activeCollection }) {
                     background: activeCodeTab === 'curl' ? 'var(--ink-primary)' : 'transparent',
                     color: activeCodeTab === 'curl' ? '#FFFFFF' : 'var(--ink-secondary)',
                     cursor: 'pointer',
+                    transition: 'all 120ms ease',
                   }}
                 >
                   cURL / SSE
@@ -194,6 +197,7 @@ export function LandingPage({ onNavigate, activeCollection }) {
                     background: activeCodeTab === 'python' ? 'var(--ink-primary)' : 'transparent',
                     color: activeCodeTab === 'python' ? '#FFFFFF' : 'var(--ink-secondary)',
                     cursor: 'pointer',
+                    transition: 'all 120ms ease',
                   }}
                 >
                   Python SDK
@@ -248,12 +252,12 @@ async def stream_rag():
 
 function MetricBlock({ index, label, value, status }) {
   return (
-    <div style={{ padding: '24px 20px', borderRight: '1px solid var(--hairline)', background: '#FFFFFF' }}>
+    <div className="metric-tile" style={{ padding: '24px 20px', borderRight: '1px solid var(--hairline)', background: '#FFFFFF' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span className="index-num">{index}</span>
         <span className="meta-label">{status}</span>
       </div>
-      <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--ink-primary)', marginTop: 12 }}>
+      <div className="metric-tile-value" style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--ink-primary)', marginTop: 12 }}>
         {value}
       </div>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--ink-secondary)', marginTop: 4, textTransform: 'uppercase' }}>
@@ -265,7 +269,7 @@ function MetricBlock({ index, label, value, status }) {
 
 function PillarCard({ index, title, desc, icon }) {
   return (
-    <div style={{ background: '#FFFFFF', padding: '28px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <div className="swiss-card" style={{ background: '#FFFFFF', padding: '28px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <span className="index-num">{index}</span>

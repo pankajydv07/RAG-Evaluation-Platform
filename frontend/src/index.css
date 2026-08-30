@@ -443,3 +443,285 @@ h3, .h3 {
     padding: 12px 16px;
   }
 }
+
+/* ==============================================================================
+   SWISS ANIMATION SYSTEM
+   Principle: Precise, mechanical, mathematical. No bounce. No spring.
+   Timing: Linear or sharp ease-out. Short durations (80–220ms).
+   ============================================================================== */
+
+/* ── Page-level entry ─────────────────────────────────────────────────────── */
+@keyframes swiss-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes swiss-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes swiss-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.swiss-page-enter {
+  animation: swiss-enter 200ms ease-out both;
+}
+
+/* ── Stagger children ─────────────────────────────────────────────────────── */
+.swiss-stagger > * {
+  animation: swiss-enter 180ms ease-out both;
+}
+.swiss-stagger > *:nth-child(1)  { animation-delay: 0ms; }
+.swiss-stagger > *:nth-child(2)  { animation-delay: 40ms; }
+.swiss-stagger > *:nth-child(3)  { animation-delay: 80ms; }
+.swiss-stagger > *:nth-child(4)  { animation-delay: 120ms; }
+.swiss-stagger > *:nth-child(5)  { animation-delay: 160ms; }
+.swiss-stagger > *:nth-child(6)  { animation-delay: 200ms; }
+.swiss-stagger > *:nth-child(n+7) { animation-delay: 240ms; }
+
+/* ── Card hover lift ──────────────────────────────────────────────────────── */
+.swiss-card {
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+.swiss-card:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-color: var(--hairline-dark);
+}
+
+/* ── Metric tile count-in ─────────────────────────────────────────────────── */
+@keyframes swiss-count-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.metric-tile-value {
+  animation: swiss-count-in 300ms ease-out both;
+}
+.metric-tile:nth-child(1) .metric-tile-value { animation-delay: 0ms; }
+.metric-tile:nth-child(2) .metric-tile-value { animation-delay: 60ms; }
+.metric-tile:nth-child(3) .metric-tile-value { animation-delay: 120ms; }
+.metric-tile:nth-child(4) .metric-tile-value { animation-delay: 180ms; }
+
+/* ── Chip micro-animation ─────────────────────────────────────────────────── */
+.swiss-chip {
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, transform 100ms ease;
+}
+.swiss-chip:hover {
+  transform: translateY(-1px);
+}
+
+/* ── Button press ─────────────────────────────────────────────────────────── */
+.btn {
+  transition: all 100ms ease;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Nav item slide indicator ─────────────────────────────────────────────── */
+.nav-item {
+  position: relative;
+  transition: background 100ms ease, color 100ms ease;
+}
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--swiss-red);
+  animation: swiss-enter-left 200ms ease-out both;
+}
+
+/* ── Input focus ──────────────────────────────────────────────────────────── */
+.input-field {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.input-field:focus {
+  border-color: var(--ink-primary);
+  box-shadow: 0 0 0 2px rgba(10, 10, 10, 0.06);
+}
+
+/* ==============================================================================
+   SWISS SKELETON / SHIMMER LOADER
+   ============================================================================== */
+
+@keyframes swiss-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.swiss-skeleton {
+  background: linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%);
+  background-size: 1200px 100%;
+  animation: swiss-shimmer 1.4s linear infinite;
+  border-radius: var(--r-sm);
+}
+
+.swiss-skeleton-line {
+  height: 12px;
+  margin-bottom: 10px;
+  border-radius: var(--r-sm);
+}
+
+.swiss-skeleton-line.wide  { width: 75%; }
+.swiss-skeleton-line.mid   { width: 50%; }
+.swiss-skeleton-line.short { width: 30%; }
+
+/* ── Swiss Progress Bar ───────────────────────────────────────────────────── */
+@keyframes swiss-progress-indeterminate {
+  0%   { left: -40%; width: 40%; }
+  60%  { left: 100%; width: 40%; }
+  100% { left: 100%; width: 0; }
+}
+
+.swiss-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--hairline);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.swiss-progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--swiss-red);
+  animation: swiss-progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+/* ── Swiss Spinner (rotating square — pure geometric) ─────────────────────── */
+@keyframes swiss-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes swiss-rotate-square {
+  0%   { transform: rotate(0deg); }
+  25%  { transform: rotate(90deg); }
+  50%  { transform: rotate(180deg); }
+  75%  { transform: rotate(270deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.swiss-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--hairline);
+  border-top-color: var(--swiss-red);
+  border-radius: 50%;
+  animation: swiss-spin 600ms linear infinite;
+  flex-shrink: 0;
+}
+
+.swiss-spinner-sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.swiss-spinner-square {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: var(--swiss-red);
+  animation: swiss-rotate-square 800ms steps(4) infinite;
+  flex-shrink: 0;
+}
+
+/* ── Dot pulse (for streaming state) ─────────────────────────────────────── */
+@keyframes swiss-pulse-dot {
+  0%, 100% { opacity: 0.2; transform: scaleY(0.6); }
+  50%       { opacity: 1;   transform: scaleY(1.0); }
+}
+
+.swiss-pulse-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.swiss-pulse-dots span {
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  background: var(--swiss-red);
+  animation: swiss-pulse-dot 900ms ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+.swiss-pulse-dots span:nth-child(2) { animation-delay: 150ms; }
+.swiss-pulse-dots span:nth-child(3) { animation-delay: 300ms; }
+
+/* ── Swiss "ticker" scan line on metric tiles ─────────────────────────────── */
+@keyframes swiss-scan {
+  0%   { top: 0; opacity: 0.4; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.metric-tile {
+  overflow: hidden;
+  transition: border-color 150ms ease;
+}
+
+.metric-tile:hover {
+  border-color: var(--hairline-dark);
+}
+
+/* ── Fade overlay for page transitions ────────────────────────────────────── */
+@keyframes swiss-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.swiss-fade-in {
+  animation: swiss-fade-in 160ms ease-out both;
+}
+
+/* ── Table row reveal ─────────────────────────────────────────────────────── */
+@keyframes swiss-row-enter {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.swiss-row-enter {
+  animation: swiss-row-enter 180ms ease-out both;
+}
+
+/* animate-spin utility (for RefreshCw icons) */
+.animate-spin {
+  animation: swiss-spin 700ms linear infinite;
+}
+

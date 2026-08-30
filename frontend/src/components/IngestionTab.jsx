@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { SwissProgressBar, SwissSpinner, SwissSkeleton } from './SwissLoader';
 
 export function IngestionTab({ collections, activeCollection, onCollectionChange }) {
   // ── Collection target ──────────────────────────────────────────────────────
@@ -147,7 +148,8 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
   const canIngest = collectionMode === 'existing' && selectedCollection;
 
   return (
-    <div style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+    <div className="swiss-page-enter" style={{ padding: '48px 0', background: 'var(--bg-canvas)', minHeight: 'calc(100vh - 56px)' }}>
+      {(isUploading || creatingCollection) && <SwissProgressBar />}
       <div className="swiss-container">
 
         {/* Header */}
@@ -166,6 +168,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
         {/* Status Banner */}
         {statusMessage && (
           <div
+            className="swiss-fade-in"
             style={{
               padding: '14px 20px',
               border: '1px solid',
@@ -192,6 +195,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
 
         {/* ── Step 1: Collection Selector ─────────────────────────────────────── */}
         <div
+          className="swiss-card"
           style={{
             border: '1px solid var(--hairline-heavy)',
             background: '#FFFFFF',
@@ -230,7 +234,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                   cursor: 'pointer',
                   background: collectionMode === 'existing' ? 'var(--swiss-red)' : '#FFFFFF',
                   color: collectionMode === 'existing' ? '#FFFFFF' : 'var(--ink-secondary)',
-                  transition: 'background 150ms',
+                  transition: 'all 150ms ease',
                 }}
               >
                 USE EXISTING
@@ -247,7 +251,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                   cursor: 'pointer',
                   background: collectionMode === 'new' ? 'var(--swiss-red)' : '#FFFFFF',
                   color: collectionMode === 'new' ? '#FFFFFF' : 'var(--ink-secondary)',
-                  transition: 'background 150ms',
+                  transition: 'all 150ms ease',
                 }}
               >
                 <Plus size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
@@ -257,7 +261,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
 
             {/* Existing collection dropdown */}
             {collectionMode === 'existing' && (
-              <div style={{ maxWidth: 480 }}>
+              <div className="swiss-fade-in" style={{ maxWidth: 480 }}>
                 <label className="meta-label">SELECT COLLECTION</label>
                 <div style={{ position: 'relative', marginTop: 8 }}>
                   <select
@@ -304,7 +308,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
 
             {/* New collection form */}
             {collectionMode === 'new' && (
-              <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="swiss-fade-in" style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div>
                   <label className="meta-label">COLLECTION NAME <span style={{ color: 'var(--swiss-red)' }}>*</span></label>
                   <input
@@ -314,6 +318,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                     placeholder="e.g., system-design"
                     className="input-field"
                     style={{ marginTop: 6 }}
+                    disabled={creatingCollection}
                   />
                 </div>
                 <div>
@@ -325,6 +330,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                     placeholder="Short description of this knowledge base"
                     className="input-field"
                     style={{ marginTop: 6 }}
+                    disabled={creatingCollection}
                   />
                 </div>
                 <button
@@ -333,7 +339,12 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                   className="btn btn-swiss"
                   style={{ alignSelf: 'flex-start' }}
                 >
-                  {creatingCollection ? 'Creating...' : (
+                  {creatingCollection ? (
+                    <>
+                      <SwissSpinner size="sm" />
+                      <span>Creating Collection...</span>
+                    </>
+                  ) : (
                     <><Plus size={13} /><span>Create Collection</span></>
                   )}
                 </button>
@@ -344,7 +355,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
 
         {/* ── Step 2: Ingestion + Docs Panel (only shown when collection is selected) ── */}
         {canIngest ? (
-          <div className="swiss-grid-12">
+          <div className="swiss-grid-12 swiss-fade-in">
             {/* Left: Ingestion Controls */}
             <div style={{ gridColumn: 'span 7' }}>
               <div className="swiss-card" style={{ marginBottom: 24 }}>
@@ -403,7 +414,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
 
                 {/* PDF Form */}
                 {ingestMode === 'pdf' && (
-                  <form onSubmit={handlePdfUpload}>
+                  <form onSubmit={handlePdfUpload} className="swiss-fade-in">
                     <div
                       style={{
                         border: '2px dashed var(--hairline-heavy)',
@@ -412,6 +423,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                         background: selectedFile ? 'var(--signal-green-light)' : '#FAFAFA',
                         cursor: 'pointer',
                         marginBottom: 20,
+                        transition: 'background 150ms ease, border-color 150ms ease',
                       }}
                       onClick={() => document.getElementById('pdf-input').click()}
                     >
@@ -431,14 +443,21 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                       />
                     </div>
                     <button type="submit" disabled={!selectedFile || isUploading} className="btn btn-swiss" style={{ width: '100%' }}>
-                      {isUploading ? 'Parsing & Vectorizing Chunks...' : 'Ingest PDF into Corpus'}
+                      {isUploading ? (
+                        <>
+                          <SwissSpinner size="sm" />
+                          <span>Parsing & Vectorizing Chunks...</span>
+                        </>
+                      ) : (
+                        <span>Ingest PDF into Corpus</span>
+                      )}
                     </button>
                   </form>
                 )}
 
                 {/* Text Form */}
                 {ingestMode === 'text' && (
-                  <form onSubmit={handleTextUpload} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <form onSubmit={handleTextUpload} className="swiss-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div>
                       <label className="meta-label">DOCUMENT TITLE / IDENTIFIER</label>
                       <input
@@ -448,6 +467,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                         placeholder="e.g., Architecture RFC 042"
                         className="input-field"
                         style={{ marginTop: 6 }}
+                        disabled={isUploading}
                       />
                     </div>
                     <div>
@@ -459,17 +479,25 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                         rows={8}
                         className="input-field"
                         style={{ marginTop: 6, resize: 'vertical' }}
+                        disabled={isUploading}
                       />
                     </div>
                     <button type="submit" disabled={!textTitle.trim() || !textInput.trim() || isUploading} className="btn btn-swiss">
-                      {isUploading ? 'Processing Text...' : 'Ingest Raw Text Document'}
+                      {isUploading ? (
+                        <>
+                          <SwissSpinner size="sm" />
+                          <span>Processing Text...</span>
+                        </>
+                      ) : (
+                        <span>Ingest Raw Text Document</span>
+                      )}
                     </button>
                   </form>
                 )}
 
                 {/* URL Form */}
                 {ingestMode === 'url' && (
-                  <form onSubmit={handleUrlUpload} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <form onSubmit={handleUrlUpload} className="swiss-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div>
                       <label className="meta-label">WEB TARGET URL</label>
                       <input
@@ -479,13 +507,21 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                         placeholder="https://docs.example.com/system-spec"
                         className="input-field"
                         style={{ marginTop: 6 }}
+                        disabled={isUploading}
                       />
                     </div>
                     <p style={{ fontSize: 12, color: 'var(--ink-tertiary)', margin: 0 }}>
                       Some sites (Cloudflare, heavy SPAs) may block scraping — use Raw Text as a fallback.
                     </p>
                     <button type="submit" disabled={!urlInput.trim() || isUploading} className="btn btn-swiss">
-                      {isUploading ? 'Scraping and Ingesting...' : 'Fetch and Ingest URL'}
+                      {isUploading ? (
+                        <>
+                          <SwissSpinner size="sm" />
+                          <span>Scraping and Ingesting...</span>
+                        </>
+                      ) : (
+                        <span>Fetch and Ingest URL</span>
+                      )}
                     </button>
                   </form>
                 )}
@@ -505,7 +541,11 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                   </button>
                 </div>
 
-                {documents.length === 0 ? (
+                {loadingDocs && documents.length === 0 ? (
+                  <div style={{ padding: 16 }}>
+                    <SwissSkeleton lines={4} />
+                  </div>
+                ) : documents.length === 0 ? (
                   <div style={{ padding: 32, border: '1px solid var(--hairline)', background: '#FAFAFA', textAlign: 'center' }}>
                     <FolderOpen size={24} style={{ color: 'var(--ink-tertiary)', marginBottom: 8 }} />
                     <div style={{ fontSize: 13, fontWeight: 600 }}>No documents indexed yet</div>
@@ -515,15 +555,17 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--hairline)' }}>
-                    {documents.map((doc) => (
+                    {documents.map((doc, idx) => (
                       <div
                         key={doc.id}
+                        className="swiss-row-enter"
                         style={{
                           padding: 16,
                           background: '#FFFFFF',
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
+                          animationDelay: `${idx * 30}ms`,
                         }}
                       >
                         <div style={{ minWidth: 0, paddingRight: 12 }}>
@@ -552,6 +594,7 @@ export function IngestionTab({ collections, activeCollection, onCollectionChange
           /* Locked state — no collection selected yet */
           collectionMode === 'existing' && (
             <div
+              className="swiss-fade-in"
               style={{
                 padding: 40,
                 border: '1px dashed var(--hairline-heavy)',

@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { api } from '../api/client';
+import { SwissProgressBar, SwissPulseDots } from './SwissLoader';
 
 export function ChatLayout({ activeCollection }) {
   const [sessions, setSessions] = useState(() => {
@@ -218,7 +219,8 @@ export function ChatLayout({ activeCollection }) {
   };
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 56px)', background: 'var(--bg-canvas)' }}>
+    <div style={{ display: 'flex', height: 'calc(100vh - 56px)', background: 'var(--bg-canvas)' }} className="swiss-fade-in">
+      {isStreaming && <SwissProgressBar />}
       {/* ----------------------------------------------------------------------
           LEFT SESSION DIRECTORY
           ---------------------------------------------------------------------- */}
@@ -345,7 +347,11 @@ export function ChatLayout({ activeCollection }) {
 
                   <div style={{ fontSize: 14.5, lineHeight: 1.7, color: 'var(--ink-primary)', whiteSpace: 'pre-wrap' }}>
                     {msg.role === 'assistant'
-                      ? renderContentWithCitations(msg.content, msg.citations)
+                      ? (msg.content
+                          ? renderContentWithCitations(msg.content, msg.citations)
+                          : isStreaming && msg.id === activeSession.messages.at(-1)?.id
+                            ? <SwissPulseDots />
+                            : null)
                       : msg.content}
                   </div>
 

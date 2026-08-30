@@ -19,12 +19,29 @@ A production-grade Retrieval-Augmented Generation (RAG) and LLM evaluation platf
    - **A/B Testing**: Side-by-side model comparison runner.
 
 3. **Automated CI/CD Quality Regression Gate**:
-   - Version-controlled Golden QA Dataset (`ragapp/eval/golden_dataset.json`).
+   - Version-controlled Golden QA Dataset (`backend/eval/golden_dataset.json`).
    - Threshold enforcement (`eval/thresholds.yml`) blocking PRs/builds if quality regresses.
 
 ---
 
-## 🚀 Quickstart
+## 🐳 Docker Deployment (Full Stack)
+
+To run the entire platform (Postgres with `pgvector`, FastAPI backend, and Nginx-served frontend) in Docker:
+
+```bash
+# 1. Ensure your .env file is populated with API keys
+cp .env.example .env
+
+# 2. Launch the entire container stack
+docker compose up -d --build
+```
+- **Frontend Dashboard**: `http://localhost:3000`
+- **Backend API & Swagger Docs**: `http://localhost:8000/docs`
+- **PostgreSQL (`pgvector`)**: `localhost:5432`
+
+---
+
+## 🚀 Local Development Quickstart
 
 ### 1. Configure API Keys & Database
 ```bash
@@ -32,22 +49,19 @@ cp .env.example .env
 # Fill in GROQ_API_KEY, NEBIUS_API_KEY, and DATABASE_URL in .env
 ```
 
-### 2. Start PostgreSQL with pgvector (via Docker)
+### 2. Start PostgreSQL with pgvector (Optional)
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres
 ```
 
-### 3. Run the Backend API & Frontend Dashboard
+### 3. Run Backend API Server
 ```bash
-# Start backend (serves API on port 8000 and built React SPA on /)
-uv run python -m ragapp.cli serve --port 8000
+uv run python -m backend.cli serve --port 8000
 ```
-Open **`http://localhost:8000`** in your browser!
 
-*(Optional: For frontend live reload during development)*:
+### 4. Run Frontend Development Server
 ```bash
 cd frontend && npm run dev
-# React Vite dev server runs on http://localhost:3000
 ```
 
 ---
@@ -56,19 +70,19 @@ cd frontend && npm run dev
 
 ```bash
 # 1. Ingest a PDF into a collection
-uv run python -m ragapp.cli ingest --collection "system-design" --file "SystemDesignInterview.pdf"
+uv run python -m backend.cli ingest --collection "system-design" --file "SystemDesignInterview.pdf"
 
 # 2. Query RAG with citations
-uv run python -m ragapp.cli query --collection "system-design" --query "How does consistent hashing work?"
+uv run python -m backend.cli query --collection "system-design" --query "How does consistent hashing work?"
 
 # 3. Run Head-to-Head Model A/B Test
-uv run python -m ragapp.cli ab-test --collection "system-design" --query "What is database sharding?"
+uv run python -m backend.cli ab-test --collection "system-design" --query "What is database sharding?"
 
 # 4. Run CI/CD Quality Regression Gate
-uv run python -m ragapp.cli eval-gate
+uv run python -m backend.cli eval-gate
 
 # 5. View Evaluation Summary Table
-uv run python -m ragapp.cli eval-summary
+uv run python -m backend.cli eval-summary
 ```
 
 ---
@@ -78,3 +92,4 @@ uv run python -m ragapp.cli eval-summary
 ```bash
 uv run pytest
 ```
+

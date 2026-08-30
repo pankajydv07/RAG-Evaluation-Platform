@@ -1,8 +1,9 @@
 [project]
-name = "ragapp"
+name = "backend"
 version = "0.1.0"
 description = "Production RAG System and Evaluation Platform with Supabase, Groq, and Nebius AI"
 readme = "README.md"
+
 requires-python = ">=3.11,<3.15"
 dependencies = [
     "fastapi>=0.115.0",

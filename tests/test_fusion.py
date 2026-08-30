@@ -1,7 +1,7 @@
 """Unit tests for Reciprocal Rank Fusion (RRF)."""
 
 import uuid
-from ragapp.retrieval.fusion import reciprocal_rank_fusion
+from backend.retrieval.fusion import reciprocal_rank_fusion
 
 
 def test_reciprocal_rank_fusion():

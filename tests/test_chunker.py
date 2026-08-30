@@ -1,6 +1,6 @@
 """Unit tests for document chunking strategies."""
 
-from ragapp.retrieval.chunker import Chunker, count_tokens_approx
+from backend.retrieval.chunker import Chunker, count_tokens_approx
 
 
 def test_count_tokens_approx():

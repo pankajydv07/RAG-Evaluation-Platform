@@ -1,8 +1,8 @@
 """Unit tests for A/B Comparative Judge and Service."""
 
 import pytest
-from ragapp.eval.ab_judge import ComparativeJudge
-from ragapp.providers.base import LLMProvider, LLMResponse
+from backend.eval.ab_judge import ComparativeJudge
+from backend.providers.base import LLMProvider, LLMResponse
 
 
 class MockJudgeProvider(LLMProvider):

@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Python virtual environment & cache
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov/
+
+# Node & Frontend
+node_modules
+dist
+.env.local
+
+# Databases & local state
+*.db
+*.db-shm
+*.db-wal
+postgres_data
+redis_data
+
+# Artifacts and logs
+.gemini
+brain
+scratch
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

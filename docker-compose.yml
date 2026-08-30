@@ -17,16 +17,48 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - ragapp-network
 
-  redis:
-    image: redis:7-alpine
-    container_name: ragapp_redis
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ragapp_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/ragapp
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ragapp-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ragapp_frontend
     restart: unless-stopped
     ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - ragapp-network
 
 volumes:
   postgres_data:
-  redis_data:
+  backend_data:
+
+networks:
+  ragapp-network:
+    driver: bridge

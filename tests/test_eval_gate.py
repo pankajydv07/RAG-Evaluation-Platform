@@ -2,7 +2,7 @@
 
 import json
 import pytest
-from ragapp.eval.gate import run_evaluation_gate
+from backend.eval.gate import run_evaluation_gate
 
 
 @pytest.mark.asyncio
@@ -12,9 +12,10 @@ async def test_gate_missing_dataset():
 
 
 def test_golden_dataset_structure():
-    with open("ragapp/eval/golden_dataset.json", "r", encoding="utf-8") as f:
+    with open("backend/eval/golden_dataset.json", "r", encoding="utf-8") as f:
         items = json.load(f)
     assert len(items) == 10
+
     for item in items:
         assert "question" in item
         assert "collection_name" in item

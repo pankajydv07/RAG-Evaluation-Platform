@@ -4,7 +4,7 @@ import json
 import uuid
 from typing import Any
 import numpy as np
-from sqlalchemy import select
+from sqlalchemy import Float, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.storage.models import Passage
 from backend.storage.vector_store import SearchResult
@@ -57,7 +57,7 @@ class VectorRepository:
         dialect_name = bind.dialect.name if bind else "sqlite"
 
         if dialect_name == "postgresql":
-            distance_col = Passage.embedding.op("<=>")(query_embedding)
+            distance_col = Passage.embedding.op("<=>", return_type=Float)(query_embedding)
             stmt = (
                 select(
                     Passage.id,

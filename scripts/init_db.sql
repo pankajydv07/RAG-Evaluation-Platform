@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS passages (
     text TEXT NOT NULL,
     parent_text TEXT,
     token_count INTEGER NOT NULL DEFAULT 0,
-    embedding vector(768),
+    embedding vector,
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -50,11 +50,6 @@ CREATE TABLE IF NOT EXISTS passages (
 CREATE INDEX IF NOT EXISTS idx_passages_collection_id ON passages(collection_id);
 CREATE INDEX IF NOT EXISTS idx_passages_document_id ON passages(document_id);
 CREATE INDEX IF NOT EXISTS idx_passages_metadata_gin ON passages USING GIN(metadata);
-
--- HNSW Vector Index for Cosine Similarity (vector_cosine_ops)
-CREATE INDEX IF NOT EXISTS idx_passages_embedding_hnsw ON passages 
-USING hnsw (embedding vector_cosine_ops) 
-WITH (m = 16, ef_construction = 64);
 
 -- 5. Query Traces & Evaluation Logs
 CREATE TABLE IF NOT EXISTS query_traces (

@@ -20,14 +20,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Copy project specification & dependencies
-COPY pyproject.toml .
+COPY pyproject.toml README.md* ./
+RUN touch README.md
 
 # Install dependencies into system environment (CPU PyTorch to optimize build speed & size)
 RUN uv pip install --system --no-cache --extra-index-url https://download.pytorch.org/whl/cpu -r pyproject.toml
 
 # Copy backend application source code
 COPY backend/ ./backend/
-COPY README.md .
 
 # Install local package in editable/system mode
 RUN uv pip install --system --no-cache -e .

@@ -43,6 +43,15 @@ def get_engine() -> AsyncEngine:
                 cursor.close()
 
         else:
+            # Normalize standard Postgres URI to SQLAlchemy asyncpg dialect
+            if db_url.startswith("postgres://"):
+                db_url = "postgresql+asyncpg://" + db_url[len("postgres://"):]
+            elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
+                db_url = "postgresql+asyncpg://" + db_url[len("postgresql://"):]
+
+            # asyncpg prefers ssl parameter over sslmode/channel_binding in query string
+            db_url = db_url.replace("sslmode=require", "ssl=require").replace("channel_binding=require&", "").replace("&channel_binding=require", "")
+
             _engine = create_async_engine(
                 db_url,
                 echo=(settings.log_level.upper() == "DEBUG"),

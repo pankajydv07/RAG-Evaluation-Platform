@@ -2,7 +2,8 @@
  * REST API client communicating with FastAPI backend
  */
 
-const API_BASE = '/api/v1';
+const API_HOST = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+const API_BASE = `${API_HOST}/api/v1`;
 
 /**
  * Safely parse error response — handles both JSON (FastAPI detail) and
@@ -25,7 +26,7 @@ async function extractError(res, fallback = 'Request failed') {
 export const api = {
   // Health
   async getHealth() {
-    const res = await fetch('/health');
+    const res = await fetch(`${API_HOST}/health`);
     return res.json();
   },
 

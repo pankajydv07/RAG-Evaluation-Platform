@@ -59,10 +59,18 @@ class VectorType(TypeDecorator):
     impl = JSON
     cache_ok = True
 
+    @property
+    def comparator_factory(self):
+        try:
+            from pgvector.sqlalchemy import Vector
+            return Vector.comparator_factory
+        except Exception:
+            return super().comparator_factory
+
     def load_dialect_impl(self, dialect):
         if dialect.name == "postgresql":
             from pgvector.sqlalchemy import Vector
-            return dialect.type_descriptor(Vector(768))
+            return dialect.type_descriptor(Vector())
         return dialect.type_descriptor(JSON)
 
     def process_bind_param(self, value, dialect):

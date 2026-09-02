@@ -57,7 +57,7 @@ class VectorRepository:
         dialect_name = bind.dialect.name if bind else "sqlite"
 
         if dialect_name == "postgresql":
-            distance_col = Passage.embedding.cosine_distance(query_embedding)
+            distance_col = Passage.embedding.op("<=>")(query_embedding)
             stmt = (
                 select(
                     Passage.id,

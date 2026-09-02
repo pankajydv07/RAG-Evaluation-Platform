@@ -32,9 +32,9 @@ class Settings(BaseSettings):
 
     # LLM & Embedding Providers: Nebius AI Token Factory
     nebius_api_key: str | None = None
-    nebius_base_url: str = "https://api.studio.nebius.ai/v1"
+    nebius_base_url: str = "https://api.tokenfactory.nebius.com/v1/"
     nebius_generator_model: str = "meta-llama/Llama-3.3-70B-Instruct"
-    nebius_embedding_model: str = "BAAI/bge-m3"
+    nebius_embedding_model: str = "Qwen/Qwen3-Embedding-8B"
 
     # LLM & Embedding Providers: OpenAI
     openai_api_key: str | None = None

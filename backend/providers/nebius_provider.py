@@ -181,9 +181,9 @@ class NebiusEmbeddingProvider(EmbeddingProvider):
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://api.studio.nebius.ai/v1",
-        model: str = "BAAI/bge-en-v1.5",
-        dim: int = 768,
+        base_url: str = "https://api.tokenfactory.nebius.com/v1/",
+        model: str = "Qwen/Qwen3-Embedding-8B",
+        dim: int = 4096,
     ):
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self.model = model

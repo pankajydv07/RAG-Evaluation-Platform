@@ -54,6 +54,29 @@ class GUID(TypeDecorator):
         return value
 
 
+class UUIDArray(TypeDecorator):
+    """Platform-independent array of UUIDs (Postgres ARRAY(UUID), SQLite JSON)."""
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PG_ARRAY(PG_UUID(as_uuid=True)))
+        return dialect.type_descriptor(JSON)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return []
+        if dialect.name == "postgresql":
+            return [uuid.UUID(str(v)) if not isinstance(v, uuid.UUID) else v for v in value]
+        return [str(v) for v in value]
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return []
+        return [uuid.UUID(str(v)) if not isinstance(v, uuid.UUID) else v for v in value]
+
+
 class VectorType(TypeDecorator):
     """Platform-independent vector type (pgvector Vector on PG, JSON on SQLite)."""
     impl = JSON
@@ -159,7 +182,7 @@ class QueryTrace(Base):
         GUID, ForeignKey("collections.id", ondelete="SET NULL"), nullable=True
     )
     query_text: Mapped[str] = mapped_column(Text, nullable=False)
-    retrieved_passage_ids: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    retrieved_passage_ids: Mapped[list[uuid.UUID]] = mapped_column(UUIDArray, default=list)
     prompt_used: Mapped[str | None] = mapped_column(Text, nullable=True)
     generated_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)

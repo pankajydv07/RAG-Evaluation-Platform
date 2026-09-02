@@ -4,6 +4,7 @@ from backend.core.config import Settings, get_settings
 from backend.providers.base import LLMProvider, EmbeddingProvider
 from backend.providers.groq_provider import GroqProvider
 from backend.providers.nebius_provider import NebiusLLMProvider, NebiusEmbeddingProvider
+from backend.providers.openai_provider import OpenAILLMProvider, OpenAIEmbeddingProvider
 from backend.providers.local_embedding import LocalEmbeddingProvider
 
 
@@ -30,6 +31,14 @@ def get_llm_provider(role: str = "generator", settings: Settings | None = None) 
             default_model=cfg.nebius_generator_model,
         )
 
+    elif provider_name == "openai":
+        if not cfg.openai_api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required for OpenAILLMProvider.")
+        return OpenAILLMProvider(
+            api_key=cfg.openai_api_key,
+            default_model=cfg.openai_generator_model,
+        )
+
     raise ValueError(f"Unknown LLM provider: {provider_name}")
 
 
@@ -44,6 +53,15 @@ def get_embedding_provider(settings: Settings | None = None) -> EmbeddingProvide
             api_key=cfg.nebius_api_key,
             base_url=cfg.nebius_base_url,
             model=cfg.nebius_embedding_model,
+            dim=cfg.embedding_dim,
+        )
+
+    elif cfg.embedding_provider == "openai":
+        if not cfg.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is required for OpenAIEmbeddingProvider.")
+        return OpenAIEmbeddingProvider(
+            api_key=cfg.openai_api_key,
+            model=cfg.openai_embedding_model,
             dim=cfg.embedding_dim,
         )
 

@@ -34,12 +34,17 @@ class Settings(BaseSettings):
     nebius_api_key: str | None = None
     nebius_base_url: str = "https://api.studio.nebius.ai/v1"
     nebius_generator_model: str = "meta-llama/Llama-3.3-70B-Instruct"
-    nebius_embedding_model: str = "BAAI/bge-en-v1.5"
+    nebius_embedding_model: str = "BAAI/bge-m3"
+
+    # LLM & Embedding Providers: OpenAI
+    openai_api_key: str | None = None
+    openai_embedding_model: str = "text-embedding-3-small"
+    openai_generator_model: str = "gpt-4o-mini"
 
     # Active Provider Selections
-    primary_llm_provider: Literal["groq", "nebius"] = "groq"
-    judge_llm_provider: Literal["groq", "nebius"] = "groq"
-    embedding_provider: Literal["local", "nebius"] = "local"
+    primary_llm_provider: Literal["groq", "nebius", "openai"] = "groq"
+    judge_llm_provider: Literal["groq", "nebius", "openai"] = "groq"
+    embedding_provider: Literal["local", "nebius", "openai"] = "local"
 
     # Local Embeddings & Reranking Settings
     local_embedding_model: str = "BAAI/bge-base-en-v1.5"

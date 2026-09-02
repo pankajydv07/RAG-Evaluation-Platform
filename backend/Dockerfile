@@ -26,8 +26,16 @@ RUN touch README.md
 # Install dependencies into system environment (CPU PyTorch to optimize build speed & size)
 RUN uv pip install --system --no-cache --extra-index-url https://download.pytorch.org/whl/cpu -r pyproject.toml
 
-# Copy backend application source code
-COPY backend/ ./backend/
+# Copy backend application source code (supports both root '.' and 'backend/' build contexts)
+COPY . /tmp/src/
+RUN if [ -d /tmp/src/backend ]; then \
+        cp -r /tmp/src/backend /app/backend; \
+    else \
+        mkdir -p /app/backend && cp -r /tmp/src/* /app/backend/; \
+    fi && rm -rf /tmp/src
+
+# Set PYTHONPATH to ensure backend package is discoverable
+ENV PYTHONPATH=/app
 
 # Install local package in editable/system mode
 RUN uv pip install --system --no-cache -e .

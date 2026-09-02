@@ -159,24 +159,27 @@ export const api = {
       buffer = parts.pop() || '';
 
       for (const part of parts) {
+        if (!part.trim()) continue;
         const lines = part.split('\n');
         let eventType = '';
         let dataStr = '';
 
         for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim();
-          } else if (line.startsWith('data: ')) {
-            dataStr = line.slice(6).trim();
+          if (line.startsWith('event:')) {
+            eventType = line.replace(/^event:\s*/, '').trim();
+          } else if (line.startsWith('data:')) {
+            dataStr = line.replace(/^data:\s*/, '').trim();
           }
         }
 
         if (dataStr) {
           try {
             const data = JSON.parse(dataStr);
-            if (eventType === 'citations' && onCitations) onCitations(data.citations);
-            if (eventType === 'token' && onToken) onToken(data.token);
-            if (eventType === 'done' && onDone) onDone(data);
+            const type = eventType || data.type;
+            if (type === 'citations' && onCitations) onCitations(data.citations || []);
+            if (type === 'token' && onToken && data.token) onToken(data.token);
+            if (type === 'error' && onToken) onToken(data.token || data.error || '\n\n[Query failed]');
+            if (type === 'done' && onDone) onDone(data);
           } catch (e) {
             console.error('Error parsing SSE data:', e, 'Raw:', dataStr);
           }

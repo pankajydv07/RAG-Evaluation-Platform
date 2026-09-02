@@ -100,26 +100,35 @@ async def query_rag_stream(
 
     async def event_generator():
         last_done_payload = None
-        async for chunk in service.answer_query_stream(
-            collection_name=payload.collection_name,
-            query_text=payload.query,
-            top_k=payload.top_k,
-            enable_reranker=payload.enable_reranker,
-            enable_multi_query=payload.enable_multi_query,
-            enable_lost_in_middle_reorder=payload.enable_lost_in_middle_reorder,
-            model_override=payload.model,
-        ):
-            if chunk["type"] == "done":
-                last_done_payload = chunk
-            yield f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n"
+        try:
+            async for chunk in service.answer_query_stream(
+                collection_name=payload.collection_name,
+                query_text=payload.query,
+                top_k=payload.top_k,
+                enable_reranker=payload.enable_reranker,
+                enable_multi_query=payload.enable_multi_query,
+                enable_lost_in_middle_reorder=payload.enable_lost_in_middle_reorder,
+                model_override=payload.model,
+            ):
+                if chunk["type"] == "done":
+                    last_done_payload = chunk
+                yield f"event: {chunk['type']}\ndata: {json.dumps(chunk)}\n\n"
+        except Exception as exc:
+            import logging
+            logging.getLogger("uvicorn.error").exception(f"Error during query streaming: {exc}")
+            err_chunk = {"type": "token", "token": f"\n\n[Error: {str(exc)}]"}
+            yield f"event: token\ndata: {json.dumps(err_chunk)}\n\n"
+            done_chunk = {"type": "done", "trace_id": "", "latency_ms": 0, "generated_answer": str(exc)}
+            yield f"event: done\ndata: {json.dumps(done_chunk)}\n\n"
+            return
 
-        if last_done_payload:
+        if last_done_payload and last_done_payload.get("trace_id"):
             asyncio.create_task(
                 run_background_eval(
                     last_done_payload["trace_id"],
                     payload.query,
-                    last_done_payload["context_texts"],
-                    last_done_payload["generated_answer"],
+                    last_done_payload.get("context_texts", []),
+                    last_done_payload.get("generated_answer", ""),
                 )
             )
 

@@ -214,7 +214,14 @@ class RAGService:
 
         collection = await self.col_repo.get_by_name(collection_name)
         if not collection:
-            raise ResourceNotFoundError("Collection", collection_name)
+            cols, _ = await self.col_repo.list_all(limit=1)
+            if cols:
+                collection = cols[0]
+            else:
+                yield {"type": "citations", "citations": []}
+                yield {"type": "token", "token": "No indexed document collections found in the database. Please ingest a PDF or text document via the Ingestion tab first."}
+                yield {"type": "done", "trace_id": str(uuid.uuid4()), "latency_ms": 0, "generated_answer": "No collections found."}
+                return
 
         retrieval_limit = top_k * 3 if enable_reranker else top_k
         raw_results = await self._retrieve_passages(
@@ -235,6 +242,20 @@ class RAGService:
             rerank_scores = {r.search_result.passage_id: r.rerank_score for r in reranked}
         else:
             final_passages = raw_results[:top_k]
+
+        if not final_passages:
+            yield {"type": "citations", "citations": []}
+            yield {"type": "token", "token": f"No relevant content found in collection '{collection.name}' for your query. Try uploading relevant documents or asking another question."}
+            trace = await self.trace_repo.create_trace(
+                collection_id=collection.id,
+                query_text=query_text,
+                retrieved_passage_ids=[],
+                generated_answer="No relevant content found.",
+                generator_model=model_override or getattr(self.llm_provider, "default_model", "default"),
+                latency_ms=0,
+            )
+            yield {"type": "done", "trace_id": str(trace.id), "latency_ms": 0, "generated_answer": "No relevant content found."}
+            return
 
         if enable_lost_in_middle_reorder and final_passages:
             final_passages = reorder_lost_in_middle(final_passages)

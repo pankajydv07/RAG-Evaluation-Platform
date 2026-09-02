@@ -116,18 +116,21 @@ export function ChatLayout({ activeCollection }) {
     setInputQuery('');
     setIsStreaming(true);
 
+    const currentSessionId = activeSessionId;
+    const targetCol = activeCollection || 'system-design';
+
     try {
       await api.streamQueryRAG(
-        activeCollection || 'system-design',
+        targetCol,
         queryToSend,
         (citations) => {
           setSessions((prev) =>
             prev.map((s) =>
-              s.id === activeSessionId
+              s.id === currentSessionId
                 ? {
                     ...s,
                     messages: s.messages.map((m) =>
-                      m.id === assistantPlaceholder.id ? { ...m, citations } : m
+                      m.id === assistantPlaceholder.id ? { ...m, citations: citations || [] } : m
                     ),
                   }
                 : s
@@ -137,11 +140,11 @@ export function ChatLayout({ activeCollection }) {
         (token) => {
           setSessions((prev) =>
             prev.map((s) =>
-              s.id === activeSessionId
+              s.id === currentSessionId
                 ? {
                     ...s,
                     messages: s.messages.map((m) =>
-                      m.id === assistantPlaceholder.id ? { ...m, content: m.content + token } : m
+                      m.id === assistantPlaceholder.id ? { ...m, content: (m.content || '') + token } : m
                     ),
                   }
                 : s
@@ -151,15 +154,15 @@ export function ChatLayout({ activeCollection }) {
         (donePayload) => {
           setSessions((prev) =>
             prev.map((s) =>
-              s.id === activeSessionId
+              s.id === currentSessionId
                 ? {
                     ...s,
                     messages: s.messages.map((m) =>
                       m.id === assistantPlaceholder.id
                         ? {
                             ...m,
-                            latencyMs: donePayload.latency_ms,
-                            traceId: donePayload.trace_id,
+                            latencyMs: donePayload?.latency_ms,
+                            traceId: donePayload?.trace_id,
                           }
                         : m
                     ),
@@ -167,7 +170,6 @@ export function ChatLayout({ activeCollection }) {
                 : s
             )
           );
-          setIsStreaming(false);
         },
         topK,
         null,
@@ -175,10 +177,9 @@ export function ChatLayout({ activeCollection }) {
         true
       );
     } catch (err) {
-      console.error('Streaming error:', err);
       setSessions((prev) =>
         prev.map((s) =>
-          s.id === activeSessionId
+          s.id === currentSessionId
             ? {
                 ...s,
                 messages: s.messages.map((m) =>
@@ -190,6 +191,7 @@ export function ChatLayout({ activeCollection }) {
             : s
         )
       );
+    } finally {
       setIsStreaming(false);
     }
   };

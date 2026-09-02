@@ -26,9 +26,25 @@ class CollectionRepository:
         return result.scalar_one_or_none()
 
     async def get_by_name(self, name: str) -> Collection | None:
+        # 1. Exact match
         stmt = select(Collection).where(Collection.name == name)
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        col = result.scalar_one_or_none()
+        if col:
+            return col
+
+        # 2. Case-insensitive / hyphen-space normalization (e.g. "system-design" vs "system design")
+        normalized = name.lower().replace("-", " ").strip()
+        stmt = select(Collection).where(func.lower(func.replace(Collection.name, "-", " ")) == normalized)
+        result = await self.session.execute(stmt)
+        col = result.scalar_one_or_none()
+        if col:
+            return col
+
+        # 3. Substring match
+        stmt = select(Collection).where(func.lower(Collection.name).ilike(f"%{normalized}%"))
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
 
     async def list_all(self, offset: int = 0, limit: int = 50) -> tuple[list[Collection], int]:
         count_stmt = select(func.count(Collection.id))

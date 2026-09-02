@@ -1,6 +1,6 @@
 """Factory for creating LLM and Embedding provider instances."""
 
-from backend.config import Settings, get_settings
+from backend.core.config import Settings, get_settings
 from backend.providers.base import LLMProvider, EmbeddingProvider
 from backend.providers.groq_provider import GroqProvider
 from backend.providers.nebius_provider import NebiusLLMProvider, NebiusEmbeddingProvider

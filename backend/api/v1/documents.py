@@ -88,6 +88,13 @@ async def ingest_pdf_document(
         )
     except DomainException as exc:
         raise to_http_exception(exc)
+    except Exception as exc:
+        import logging
+        logging.getLogger("uvicorn.error").exception(f"Failed to ingest PDF '{file.filename}': {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process document: {str(exc)}",
+        )
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)

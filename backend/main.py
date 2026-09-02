@@ -37,14 +37,25 @@ def create_application() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS Middleware
+    # CORS Middleware - support credentials with origin reflection
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origin_regex=r"https?://.*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["*"],
     )
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request, exc):
+        import logging
+        logging.getLogger("uvicorn.error").exception("Unhandled application error: %s", exc)
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal Server Error: {str(exc)}"},
+        )
 
     # Include API Routers
     app.include_router(api_router)

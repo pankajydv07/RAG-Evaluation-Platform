@@ -80,10 +80,7 @@ async def list_collection_documents(
     col_repo = CollectionRepository(session)
     col = await col_repo.get_by_name(collection_name)
     if not col:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Collection '{collection_name}' not found.",
-        )
+        return []
     doc_repo = DocumentRepository(session)
     docs = await doc_repo.list_by_collection(col.id)
     return [DocumentResponse.model_validate(d) for d in docs]
